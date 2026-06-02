@@ -122,7 +122,7 @@
 // ============================================================
 // Meter Calculation
 // ============================================================
-#define METER_PSU_VOLTAGE       13.8  // Adjust for your power supply
+#define METER_PSU_VOLTAGE       13.8  // Tuner's power supply voltage (affects power/SWR accuracy)
 #define METER_POWER_SCALE       1000  // 1000 for AG-1000ProII, 600 for AG-600ProII
 #define METER_LOW_SCALE         100   // Low range scale (100W for both models)
 #define METER_POWER_SCALE       1000  // 1000 for AG-1000ProII, 600 for AG-600ProII

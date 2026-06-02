@@ -106,7 +106,7 @@ Go to **Settings** (or `GET /api/config`) to configure:
 | MQTT Port | Broker port (default 1883) |
 | MQTT Username / Password | Broker authentication |
 | Web Username / Password | Web UI authentication |
-| Meter PSU Voltage | Power supply voltage for accurate power calculation (default 13.8V) |
+| Meter PSU Voltage | Tuner's power supply voltage for accurate power calculation (default 13.8V). This is the voltage at the tuner's 12V input, not the ESP32's supply. |
 | Remote Unit ID | ID for remote unit (default 1) |
 
 Settings are saved to NVS and persist across reboots. Changing settings triggers a restart.
@@ -207,7 +207,7 @@ Response published to `ldg/tuner/command/response`.
 P = ((1000 * V_psu * raw) / (65536 * 0.707))^2 / 50
 ```
 
-Where `V_psu` is your power supply voltage (configurable via web UI, default 13.8V).
+Where `V_psu` is the tuner's power supply voltage (configurable via web UI, default 13.8V).
 
 ### Band Detection
 
