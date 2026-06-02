@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LDG Tuner Control</title>
+    <style>
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-secondary: #111122;
+            --bg-card: #16213e;
+            --bg-input: #1a1a2e;
+            --border: #0f3460;
+            --text-primary: #eee;
+            --text-secondary: #888;
+            --text-muted: #555;
+            --accent-green: #00ff00;
+            --accent-red: #ff0000;
+            --accent-yellow: #ffcc00;
+            --accent-blue: #2255aa;
+            --accent-orange: #cc8800;
+            --btn-red: #cc3333;
+            --btn-red-hover: #ff4444;
+            --btn-blue: #2255aa;
+            --btn-blue-hover: #3366cc;
+            --btn-orange: #cc8800;
+            --btn-orange-hover: #ffaa00;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.2rem;
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .header-status {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            margin-right: 4px;
+        }
+
+        .status-dot.offline { background: var(--accent-red); }
+        .status-dot.connecting { background: var(--accent-yellow); animation: pulse 1s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Navigation */
+        .nav {
+            display: flex;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 0.75rem;
+            text-align: center;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .nav-tab:hover { color: var(--text-primary); }
+        .nav-tab.active {
+            color: var(--accent-green);
+            border-bottom: 2px solid var(--accent-green);
+            background: var(--bg-card);
+        }
+
+        /* Main content */
+        .main { padding: 1rem; max-width: 800px; margin: 0 auto; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Meter cards */
+        .meter-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .meter-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .meter-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .meter-value {
+            font-size: 2rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .meter-value.fwd { color: var(--accent-green); }
+        .meter-value.ref { color: var(--accent-red); }
+        .meter-value.swr { color: var(--accent-green); }
+        .meter-value.swr.warn { color: var(--accent-yellow); }
+        .meter-value.swr.bad { color: var(--accent-red); }
+
+        .meter-unit {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-left: 2px;
+        }
+
+        /* Status bar */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-item span:first-child {
+            color: var(--text-secondary);
+        }
+
+        .status-item span:last-child {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        /* Buttons */
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .btn {
+            padding: 0.875rem 0.5rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .btn:active { transform: scale(0.97); }
+
+        .btn-red { background: var(--btn-red); color: #fff; }
+        .btn-red:hover { background: var(--btn-red-hover); }
+        .btn-blue { background: var(--btn-blue); color: #fff; }
+        .btn-blue:hover { background: var(--btn-blue-hover); }
+        .btn-orange { background: var(--btn-orange); color: #fff; }
+        .btn-orange:hover { background: var(--btn-orange-hover); }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Settings form */
+        .settings-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .settings-section h3 {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.35rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent-green);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .btn-save {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--accent-green);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+
+        .btn-save:hover { opacity: 0.9; }
+
+        .btn-reset {
+            width: 100%;
+            padding: 0.75rem;
+            background: transparent;
+            color: var(--accent-red);
+            border: 1px solid var(--accent-red);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin-top: 0.5rem;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 100;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success { border-color: var(--accent-green); }
+        .toast.error { border-color: var(--accent-red); }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .meter-grid { grid-template-columns: 1fr; }
+            .button-grid { grid-template-columns: 1fr 1fr; }
+            .form-row { grid-template-columns: 1fr; }
+            .status-bar { flex-direction: column; gap: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>LDG Tuner Control</h1>
+        <div class="header-status">
+            <span id="connectionStatus">
+                <span class="status-dot connecting"></span>
+                Connecting...
+            </span>
+        </div>
+    </div>
+
+    <nav class="nav">
+        <button class="nav-tab active" data-tab="control">Control</button>
+        <button class="nav-tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <main class="main">
+        <!-- Control Tab -->
+        <div id="tab-control" class="tab-content active">
+            <div class="status-bar">
+                <div class="status-item">
+                    <span>Band:</span>
+                    <span id="bandValue">--</span>
+                </div>
+                <div class="status-item">
+                    <span>Mode:</span>
+                    <span id="modeValue">--</span>
+                </div>
+                <div class="status-item">
+                    <span>Antenna:</span>
+                    <span id="antValue">--</span>
+                </div>
+            </div>
+
+            <div class="meter-grid">
+                <div class="meter-card">
+                    <div class="meter-label">Forward Power</div>
+                    <div class="meter-value fwd">
+                        <span id="fwdPower">0.0</span>
+                        <span class="meter-unit">W</span>
+                    </div>
+                </div>
+                <div class="meter-card">
+                    <div class="meter-label">Reflected Power</div>
+                    <div class="meter-value ref">
+                        <span id="refPower">0.0</span>
+                        <span class="meter-unit">W</span>
+                    </div>
+                </div>
+                <div class="meter-card">
+                    <div class="meter-label">SWR</div>
+                    <div class="meter-value swr" id="swrContainer">
+                        <span id="swrValue">1.0</span>
+                        <span class="meter-unit">:1</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="button-grid">
+                <button class="btn btn-red" onclick="sendCommand('memory_tune')">Mem Tune</button>
+                <button class="btn btn-red" onclick="sendCommand('full_tune')">Full Tune</button>
+                <button class="btn btn-blue" onclick="sendCommand('toggle')">Toggle Ant</button>
+                <button class="btn btn-orange" onclick="sendCommand('bypass')">Bypass</button>
+                <button class="btn btn-blue" onclick="sendCommand('auto')">Auto Mode</button>
+                <button class="btn btn-blue" onclick="sendCommand('manual')">Manual</button>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="tab-settings" class="tab-content">
+            <div class="settings-section">
+                <h3>Network</h3>
+                <div class="form-group">
+                    <label>WiFi SSID</label>
+                    <input type="text" id="ssid" placeholder="your_network">
+                </div>
+                <div class="form-group">
+                    <label>WiFi Password</label>
+                    <input type="password" id="wifiPass" placeholder="your_password">
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>MQTT</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Broker</label>
+                        <input type="text" id="mqttBroker" placeholder="192.168.1.100">
+                    </div>
+                    <div class="form-group">
+                        <label>Port</label>
+                        <input type="number" id="mqttPort" value="1883">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="mqttUser" placeholder="ldgcontroller">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="mqttPass" placeholder="change_me">
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>Web Authentication</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="webUser" placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="webPass" placeholder="change_me_please">
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>Tuner</h3>
+                <div class="form-group">
+                    <label>Meter PSU Voltage (tuner's 12V supply)</label>
+                    <input type="number" id="psuVoltage" step="0.1" value="13.8" placeholder="13.8">
+                </div>
+            </div>
+
+            <button class="btn-save" onclick="saveSettings()">Save & Restart</button>
+            <button class="btn-reset" onclick="resetSettings()">Reset to Defaults</button>
+        </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Tab navigation
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast ' + type + ' show';
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // SSE connection
+        let eventSource = null;
+
+        function connectSSE() {
+            const statusEl = document.getElementById('connectionStatus');
+
+            eventSource = new EventSource('/api/events');
+
+            eventSource.onopen = () => {
+                statusEl.innerHTML = '<span class="status-dot"></span> Connected';
+            };
+
+            eventSource.onerror = () => {
+                statusEl.innerHTML = '<span class="status-dot offline"></span> Disconnected';
+                eventSource.close();
+                setTimeout(connectSSE, 5000);
+            };
+
+            eventSource.addEventListener('meter', (e) => {
+                const data = JSON.parse(e.data);
+                updateMeter(data);
+            });
+
+            eventSource.addEventListener('status', (e) => {
+                showToast('Status: ' + e.data);
+            });
+        }
+
+        function updateMeter(data) {
+            document.getElementById('fwdPower').textContent = data.fwd_power.toFixed(1);
+            document.getElementById('refPower').textContent = data.ref_power.toFixed(1);
+
+            const swrEl = document.getElementById('swrValue');
+            swrEl.textContent = data.swr.toFixed(1);
+
+            const swrContainer = document.getElementById('swrContainer');
+            swrContainer.className = 'meter-value swr' +
+                (data.swr > 2.0 ? ' bad' : data.swr > 1.5 ? ' warn' : '');
+
+            if (data.band) document.getElementById('bandValue').textContent = data.band;
+            if (data.mode) {
+                const modes = { 0: '--', 1: 'AUTO', 2: 'MANUAL', 3: 'BYPASS' };
+                document.getElementById('modeValue').textContent = modes[data.mode] || '--';
+            }
+            if (data.antenna !== undefined) {
+                const ants = { 0: '--', 1: 'A', 2: 'B' };
+                document.getElementById('antValue').textContent = ants[data.antenna] || '--';
+            }
+        }
+
+        // Send command
+        async function sendCommand(cmd) {
+            try {
+                const resp = await fetch('/api/command/' + cmd, { method: 'POST' });
+                const data = await resp.json();
+                if (data.result === 'success') {
+                    showToast(cmd.replace('_', ' ') + ' sent');
+                } else {
+                    showToast('Command failed', 'error');
+                }
+            } catch (err) {
+                showToast('Connection error', 'error');
+            }
+        }
+
+        // Load current settings
+        async function loadSettings() {
+            try {
+                const resp = await fetch('/api/config');
+                const data = await resp.json();
+                if (data.mqttBroker) document.getElementById('mqttBroker').value = data.mqttBroker;
+                if (data.mqttPort) document.getElementById('mqttPort').value = data.mqttPort;
+                if (data.mqttUsername) document.getElementById('mqttUser').value = data.mqttUsername;
+                if (data.webUsername) document.getElementById('webUser').value = data.webUsername;
+                if (data.meterPsuVoltage) document.getElementById('psuVoltage').value = data.meterPsuVoltage;
+                if (data.wifiSSID) document.getElementById('ssid').value = data.wifiSSID;
+            } catch (err) {
+                // Settings endpoint not available
+            }
+        }
+
+        // Save settings
+        async function saveSettings() {
+            const config = {
+                mqttBroker: document.getElementById('mqttBroker').value,
+                mqttPort: parseInt(document.getElementById('mqttPort').value),
+                mqttUsername: document.getElementById('mqttUser').value,
+                mqttPassword: document.getElementById('mqttPass').value,
+                webUsername: document.getElementById('webUser').value,
+                webPassword: document.getElementById('webPass').value,
+                meterPsuVoltage: parseFloat(document.getElementById('psuVoltage').value),
+                ssid: document.getElementById('ssid').value,
+                wifiPassword: document.getElementById('wifiPass').value
+            };
+
+            try {
+                const resp = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                const data = await resp.json();
+                if (data.result === 'ok') {
+                    showToast('Settings saved. Restarting...');
+                } else {
+                    showToast('Save failed', 'error');
+                }
+            } catch (err) {
+                showToast('Connection error', 'error');
+            }
+        }
+
+        // Reset settings
+        async function resetSettings() {
+            if (!confirm('Reset all settings to defaults? This will restart the device.')) return;
+            try {
+                await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reset: true })
+                });
+                showToast('Settings reset. Restarting...');
+            } catch (err) {
+                showToast('Reset failed', 'error');
+            }
+        }
+
+        // Initialize
+        connectSSE();
+        loadSettings();
+    </script>
+</body>
+</html>
