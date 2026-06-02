@@ -1,0 +1,33 @@
+# PlatformIO
+.pio/
+.pioenvs/
+
+# Virtual environment
+.venv/
+
+# Build artifacts
+*.o
+*.a
+*.elf
+*.bin
+*.map
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Certificates (NEVER commit these)
+data/certs/
+*.key
+*.pem
+*.p12
+
+# Local config overrides
+include/config_local.h

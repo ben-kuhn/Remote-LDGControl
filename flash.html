@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LDG Tuner Controller - Web Flasher</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 500px;
+            width: 90%;
+            padding: 2rem;
+        }
+        h1 { color: #0f0; margin-bottom: 0.5rem; }
+        .subtitle { color: #888; margin-bottom: 2rem; font-size: 0.9rem; }
+        .variant {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .variant h3 { color: #fff; margin-bottom: 0.5rem; }
+        .variant p { color: #aaa; font-size: 0.85rem; margin-bottom: 1rem; }
+        esphome-flasher {
+            width: 100%;
+        }
+        .warning {
+            background: #332200;
+            border: 1px solid #664400;
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin: 1rem 0;
+            font-size: 0.85rem;
+            color: #ffaa00;
+        }
+        .steps {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .steps h3 { margin-bottom: 0.5rem; }
+        .steps ol { padding-left: 1.2rem; }
+        .steps li { margin: 0.3rem 0; font-size: 0.9rem; color: #ccc; }
+        footer {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #555;
+        }
+        footer a { color: #0f0; text-decoration: none; }
+    </style>
+    <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>LDG Tuner Flasher</h1>
+        <p class="subtitle">ESP32 firmware for LDG AG-1000ProII / AG-600ProII auto-tuners</p>
+
+        <div class="steps">
+            <h3>How to flash:</h3>
+            <ol>
+                <li>Connect your ESP32 to this computer via USB</li>
+                <li>Select your firmware variant below</li>
+                <li>Click <strong>Install</strong> and follow the prompts</li>
+                <li>After flashing, connect to the WiFi AP to configure</li>
+            </ol>
+        </div>
+
+        <div class="warning">
+            <strong>Note:</strong> Requires Chrome, Edge, or Opera. Safari and Firefox are not supported.
+        </div>
+
+        <div class="variant">
+            <h3>Display Unit</h3>
+            <p>For units with BTT TFT35-SPI touchscreen. Includes web UI, MQTT, and touch controls.</p>
+            <esp-web-install-button manifest="manifest-display.json"></esp-web-install-button>
+        </div>
+
+        <div class="variant">
+            <h3>Remote Unit</h3>
+            <p>Headless unit for remote tuner locations. Connects to display unit via WiFi/SSE.</p>
+            <esp-web-install-button manifest="manifest-remote.json"></esp-web-install-button>
+        </div>
+
+        <div class="variant">
+            <h3>Basic Unit</h3>
+            <p>Headless unit with web UI and MQTT. No remote link or display support.</p>
+            <esp-web-install-button manifest="manifest-nodisplay.json"></esp-web-install-button>
+        </div>
+
+        <footer>
+            <a href="https://github.com/ben-kuhn/Remote-LDGControl">Source Code</a> &middot;
+            <a href="https://github.com/ben-kuhn/Remote-LDGControl/blob/main/WIRING.md">Wiring Diagram</a>
+        </footer>
+    </div>
+</body>
+</html>

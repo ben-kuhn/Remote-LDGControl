@@ -1,0 +1,74 @@
+#ifndef DISPLAY_UI_H
+#define DISPLAY_UI_H
+
+#include <Arduino.h>
+
+#ifdef WITH_DISPLAY
+
+#include <lvgl.h>
+#include <TFT_eSPI.h>
+#include "tuner_protocol.h"
+#include "config.h"
+
+class DisplayUI {
+public:
+    DisplayUI();
+    ~DisplayUI();
+
+    bool begin(TunerProtocol* tuner);
+    void loop();
+    void updateMeter(const tuner_meter_t* meter);
+    void updateStatus(tuner_mode_t mode, tuner_ant_t antenna);
+
+private:
+    TFT_eSPI* m_tft;
+    TunerProtocol* m_tuner;
+
+    // LVGL objects
+    lv_obj_t* m_scr;
+    lv_obj_t* m_meter;          // Custom cross-needle meter container
+    lv_obj_t* m_bandLabel;
+    lv_obj_t* m_scaleLabel;
+    lv_obj_t* m_modeLabel;
+    lv_obj_t* m_antLabel;
+    lv_obj_t* m_ssidLabel;
+    lv_obj_t* m_ipLabel;
+
+    // Buttons
+    lv_obj_t* m_btnMemTune;
+    lv_obj_t* m_btnFullTune;
+    lv_obj_t* m_btnToggle;
+    lv_obj_t* m_btnBypass;
+    lv_obj_t* m_btnAuto;
+
+    // Meter state
+    bool m_highScale;
+    float m_maxPower;
+    float m_fwdPower;
+    float m_refPower;
+    float m_swr;
+
+    // Touch
+    void setupTouch();
+    void readTouch(lv_indev_drv_t* drv, lv_indev_data_t* data);
+
+    // Button events
+    static void btnMemTuneEvent(lv_event_t* e);
+    static void btnFullTuneEvent(lv_event_t* e);
+    static void btnToggleEvent(lv_event_t* e);
+    static void btnBypassEvent(lv_event_t* e);
+    static void btnAutoEvent(lv_event_t* e);
+    static void meterTapEvent(lv_event_t* e);
+
+    // Custom meter drawing
+    static void drawMeterEvent(lv_event_t* e);
+    void drawCrossNeedle(lv_event_t* e);
+
+    // Display flush
+    static void displayFlush(lv_disp_drv_t* disp, const lv_area_t* area, lv_color_t* color_p);
+
+    static DisplayUI* s_instance;
+};
+
+#endif // WITH_DISPLAY
+#endif // DISPLAY_UI_H
