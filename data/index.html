@@ -40,14 +40,14 @@
         .header {
             background: var(--bg-secondary);
             border-bottom: 1px solid var(--border);
-            padding: 1rem;
+            padding: 0.75rem 1rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .header h1 {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             color: var(--accent-green);
             font-weight: 600;
         }
@@ -55,7 +55,7 @@
         .header-status {
             display: flex;
             gap: 1rem;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--text-secondary);
         }
 
@@ -85,12 +85,12 @@
 
         .nav-tab {
             flex: 1;
-            padding: 0.75rem;
+            padding: 0.6rem;
             text-align: center;
             background: none;
             border: none;
             color: var(--text-secondary);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             cursor: pointer;
             transition: all 0.2s;
         }
@@ -102,99 +102,101 @@
             background: var(--bg-card);
         }
 
-        /* Main content */
-        .main { padding: 1rem; max-width: 800px; margin: 0 auto; }
+        /* Main layout */
+        .main {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            max-width: 900px;
+            margin: 0 auto;
+            align-items: flex-start;
+        }
 
-        .tab-content { display: none; }
+        .tab-content { display: none; width: 100%; }
         .tab-content.active { display: block; }
 
-        /* Meter cards */
-        .meter-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            margin-bottom: 1.5rem;
+        /* Meter panel (left 2/3) */
+        .meter-panel {
+            flex: 2;
+            min-width: 0;
         }
 
-        .meter-card {
-            background: var(--bg-card);
+        .meter-container {
+            background: var(--bg-secondary);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 1rem;
-            text-align: center;
+            padding: 0.5rem;
+            position: relative;
         }
 
-        .meter-label {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.5rem;
+        #meterCanvas {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            display: block;
+            cursor: pointer;
         }
 
-        .meter-value {
-            font-size: 2rem;
-            font-weight: 700;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .meter-value.fwd { color: var(--accent-green); }
-        .meter-value.ref { color: var(--accent-red); }
-        .meter-value.swr { color: var(--accent-green); }
-        .meter-value.swr.warn { color: var(--accent-yellow); }
-        .meter-value.swr.bad { color: var(--accent-red); }
-
-        .meter-unit {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            margin-left: 2px;
-        }
-
-        /* Status bar */
-        .status-bar {
+        .meter-info {
             display: flex;
             justify-content: space-between;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
-            margin-bottom: 1.5rem;
+            padding: 0.5rem 0.75rem 0.75rem;
             font-size: 0.9rem;
         }
 
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+        .meter-info .band {
+            color: var(--accent-green);
+            font-weight: 600;
         }
 
-        .status-item span:first-child {
+        .meter-info .scale {
             color: var(--text-secondary);
+            cursor: pointer;
         }
 
-        .status-item span:last-child {
-            color: var(--text-primary);
-            font-weight: 500;
+        .meter-info .scale:hover { color: var(--text-primary); }
+
+        /* Control panel (right 1/3) */
+        .control-panel {
+            flex: 1;
+            min-width: 150px;
         }
 
-        /* Buttons */
-        .button-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.75rem;
-            margin-bottom: 1.5rem;
+        .status-bar {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.6rem 0.75rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+        }
+
+        .status-row:last-child { margin-bottom: 0; }
+
+        .status-row span:first-child { color: var(--text-secondary); }
+        .status-row span:last-child { color: var(--text-primary); font-weight: 500; }
+
+        .button-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
         }
 
         .btn {
-            padding: 0.875rem 0.5rem;
+            padding: 0.7rem 0.5rem;
             border: none;
-            border-radius: 6px;
-            font-size: 0.85rem;
+            border-radius: 5px;
+            font-size: 0.8rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.15s;
             text-transform: uppercase;
-            letter-spacing: 0.03em;
+            letter-spacing: 0.02em;
         }
 
         .btn:active { transform: scale(0.97); }
@@ -206,11 +208,6 @@
         .btn-orange { background: var(--btn-orange); color: #fff; }
         .btn-orange:hover { background: var(--btn-orange-hover); }
 
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
         /* Settings form */
         .settings-section {
             background: var(--bg-card);
@@ -221,34 +218,32 @@
         }
 
         .settings-section h3 {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.4rem;
             border-bottom: 1px solid var(--border);
         }
 
-        .form-group {
-            margin-bottom: 1rem;
-        }
+        .form-group { margin-bottom: 0.75rem; }
 
         .form-group label {
             display: block;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--text-secondary);
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.25rem;
         }
 
         .form-group input {
             width: 100%;
-            padding: 0.5rem 0.75rem;
+            padding: 0.45rem 0.6rem;
             background: var(--bg-input);
             border: 1px solid var(--border);
             border-radius: 4px;
             color: var(--text-primary);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
         .form-group input:focus {
@@ -259,37 +254,37 @@
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+            gap: 0.75rem;
         }
 
         .btn-save {
             width: 100%;
-            padding: 0.75rem;
+            padding: 0.65rem;
             background: var(--accent-green);
             color: #000;
             border: none;
             border-radius: 6px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 0.5rem;
+            margin-top: 0.4rem;
         }
 
         .btn-save:hover { opacity: 0.9; }
 
         .btn-reset {
             width: 100%;
-            padding: 0.75rem;
+            padding: 0.65rem;
             background: transparent;
             color: var(--accent-red);
             border: 1px solid var(--accent-red);
             border-radius: 6px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             cursor: pointer;
-            margin-top: 0.5rem;
+            margin-top: 0.4rem;
         }
 
-        /* Toast notification */
+        /* Toast */
         .toast {
             position: fixed;
             bottom: 1rem;
@@ -298,8 +293,8 @@
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 6px;
-            padding: 0.75rem 1.5rem;
-            font-size: 0.9rem;
+            padding: 0.6rem 1.2rem;
+            font-size: 0.85rem;
             opacity: 0;
             transition: all 0.3s;
             z-index: 100;
@@ -314,11 +309,14 @@
         .toast.error { border-color: var(--accent-red); }
 
         /* Responsive */
-        @media (max-width: 480px) {
-            .meter-grid { grid-template-columns: 1fr; }
-            .button-grid { grid-template-columns: 1fr 1fr; }
-            .form-row { grid-template-columns: 1fr; }
-            .status-bar { flex-direction: column; gap: 0.5rem; }
+        @media (max-width: 600px) {
+            .main { flex-direction: column; }
+            .meter-panel { order: 1; }
+            .control-panel { order: 2; min-width: 0; }
+            .button-stack {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+            }
         }
     </style>
 </head>
@@ -341,52 +339,33 @@
     <main class="main">
         <!-- Control Tab -->
         <div id="tab-control" class="tab-content active">
-            <div class="status-bar">
-                <div class="status-item">
-                    <span>Band:</span>
-                    <span id="bandValue">--</span>
-                </div>
-                <div class="status-item">
-                    <span>Mode:</span>
-                    <span id="modeValue">--</span>
-                </div>
-                <div class="status-item">
-                    <span>Antenna:</span>
-                    <span id="antValue">--</span>
-                </div>
-            </div>
-
-            <div class="meter-grid">
-                <div class="meter-card">
-                    <div class="meter-label">Forward Power</div>
-                    <div class="meter-value fwd">
-                        <span id="fwdPower">0.0</span>
-                        <span class="meter-unit">W</span>
-                    </div>
-                </div>
-                <div class="meter-card">
-                    <div class="meter-label">Reflected Power</div>
-                    <div class="meter-value ref">
-                        <span id="refPower">0.0</span>
-                        <span class="meter-unit">W</span>
-                    </div>
-                </div>
-                <div class="meter-card">
-                    <div class="meter-label">SWR</div>
-                    <div class="meter-value swr" id="swrContainer">
-                        <span id="swrValue">1.0</span>
-                        <span class="meter-unit">:1</span>
+            <div class="meter-panel">
+                <div class="meter-container">
+                    <canvas id="meterCanvas" width="600" height="600"></canvas>
+                    <div class="meter-info">
+                        <span class="band" id="bandValue">Band: --</span>
+                        <span class="scale" id="scaleValue" title="Tap meter to toggle">1000W</span>
                     </div>
                 </div>
             </div>
-
-            <div class="button-grid">
-                <button class="btn btn-red" onclick="sendCommand('memory_tune')">Mem Tune</button>
-                <button class="btn btn-red" onclick="sendCommand('full_tune')">Full Tune</button>
-                <button class="btn btn-blue" onclick="sendCommand('toggle')">Toggle Ant</button>
-                <button class="btn btn-orange" onclick="sendCommand('bypass')">Bypass</button>
-                <button class="btn btn-blue" onclick="sendCommand('auto')">Auto Mode</button>
-                <button class="btn btn-blue" onclick="sendCommand('manual')">Manual</button>
+            <div class="control-panel">
+                <div class="status-bar">
+                    <div class="status-row">
+                        <span>Mode</span>
+                        <span id="modeValue">--</span>
+                    </div>
+                    <div class="status-row">
+                        <span>Antenna</span>
+                        <span id="antValue">--</span>
+                    </div>
+                </div>
+                <div class="button-stack">
+                    <button class="btn btn-red" onclick="sendCommand('memory_tune')">Mem Tune</button>
+                    <button class="btn btn-red" onclick="sendCommand('full_tune')">Full Tune</button>
+                    <button class="btn btn-blue" onclick="sendCommand('toggle')">Toggle Ant</button>
+                    <button class="btn btn-orange" onclick="sendCommand('bypass')">Bypass</button>
+                    <button class="btn btn-blue" onclick="sendCommand('auto')">Auto Mode</button>
+                </div>
             </div>
         </div>
 
@@ -468,7 +447,7 @@
             });
         });
 
-        // Toast notification
+        // Toast
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
             toast.textContent = message;
@@ -476,12 +455,163 @@
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
 
+        // ============================================================
+        // Cross-needle meter (Canvas)
+        // ============================================================
+        const canvas = document.getElementById('meterCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let meterState = {
+            fwdPower: 0,
+            refPower: 0,
+            swr: 1.0,
+            maxPower: 1000,
+            highScale: true
+        };
+
+        function drawMeter() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const cx = w / 2;
+            const cy = h - 40;
+            const radius = w / 2 - 50;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Background
+            ctx.fillStyle = '#111122';
+            ctx.fillRect(0, 0, w, h);
+
+            // Scale arc
+            ctx.strokeStyle = '#444444';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy - 10, radius, Math.PI, 2 * Math.PI);
+            ctx.stroke();
+
+            // Tick marks and labels
+            const numTicks = 11;
+            for (let i = 0; i <= numTicks; i++) {
+                const angle = Math.PI * (1 - i / numTicks);
+                const cos = Math.cos(angle);
+                const sin = Math.sin(angle);
+
+                const tickLen = (i % 5 === 0) ? 14 : 7;
+                const x1 = cx + cos * (radius + 5);
+                const y1 = (cy - 10) - sin * (radius + 5);
+                const x2 = cx + cos * (radius + 5 + tickLen);
+                const y2 = (cy - 10) - sin * (radius + 5 + tickLen);
+
+                ctx.strokeStyle = (i % 5 === 0) ? '#ffffff' : '#888888';
+                ctx.lineWidth = (i % 5 === 0) ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+
+                // Labels
+                if (i % 5 === 0) {
+                    const val = Math.round((i / numTicks) * meterState.maxPower);
+                    const lx = cx + cos * (radius - 25);
+                    const ly = (cy - 10) - sin * (radius - 25);
+                    ctx.fillStyle = '#cccccc';
+                    ctx.font = 'bold 28px -apple-system, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(val.toString(), lx, ly);
+                }
+            }
+
+            // Pivot dots
+            const fwdPx = cx - radius + 20;
+            const fwdPy = cy;
+            const refPx = cx + radius - 20;
+            const refPy = cy;
+
+            // Forward pivot (green)
+            ctx.fillStyle = '#00aa00';
+            ctx.beginPath();
+            ctx.arc(fwdPx, fwdPy, 8, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Reflected pivot (red)
+            ctx.fillStyle = '#aa0000';
+            ctx.beginPath();
+            ctx.arc(refPx, refPy, 8, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Needle angles
+            const fwdAngle = Math.PI * (1 - Math.min(meterState.fwdPower / meterState.maxPower, 1));
+            const refAngle = Math.PI * (1 - Math.min(meterState.refPower / meterState.maxPower, 1));
+
+            // Forward needle (green)
+            const fwdLen = radius * 2 - 40;
+            const fwdNx = fwdPx + Math.cos(fwdAngle) * fwdLen;
+            const fwdNy = fwdPy - Math.sin(fwdAngle) * fwdLen;
+
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(fwdPx, fwdPy);
+            ctx.lineTo(fwdNx, fwdNy);
+            ctx.stroke();
+
+            // Reflected needle (red)
+            const refLen = radius * 2 - 40;
+            const refNx = refPx - Math.cos(refAngle) * refLen;
+            const refNy = refPy - Math.sin(refAngle) * refLen;
+
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(refPx, refPy);
+            ctx.lineTo(refNx, refNy);
+            ctx.stroke();
+
+            // SWR text
+            const swrColor = meterState.swr > 2.0 ? '#ff4444' :
+                             meterState.swr > 1.5 ? '#ffaa00' : '#00ff00';
+            ctx.fillStyle = swrColor;
+            ctx.font = 'bold 48px -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(meterState.swr.toFixed(1) + ':1', cx, cy - radius / 2 - 10);
+        }
+
+        // Tap to toggle scale
+        canvas.addEventListener('click', () => {
+            meterState.highScale = !meterState.highScale;
+            meterState.maxPower = meterState.highScale ? 1000 : 100;
+            document.getElementById('scaleValue').textContent = meterState.highScale ? '1000W' : '100W';
+            drawMeter();
+        });
+
+        function updateMeter(data) {
+            meterState.fwdPower = data.fwd_power || 0;
+            meterState.refPower = data.ref_power || 0;
+            meterState.swr = data.swr || 1.0;
+
+            if (data.band) document.getElementById('bandValue').textContent = 'Band: ' + data.band;
+            if (data.mode !== undefined) {
+                const modes = { 0: '--', 1: 'AUTO', 2: 'MANUAL', 3: 'BYPASS' };
+                document.getElementById('modeValue').textContent = modes[data.mode] || '--';
+            }
+            if (data.antenna !== undefined) {
+                const ants = { 0: '--', 1: 'A', 2: 'B' };
+                document.getElementById('antValue').textContent = ants[data.antenna] || '--';
+            }
+
+            drawMeter();
+        }
+
+        // ============================================================
         // SSE connection
+        // ============================================================
         let eventSource = null;
 
         function connectSSE() {
             const statusEl = document.getElementById('connectionStatus');
-
             eventSource = new EventSource('/api/events');
 
             eventSource.onopen = () => {
@@ -495,8 +625,7 @@
             };
 
             eventSource.addEventListener('meter', (e) => {
-                const data = JSON.parse(e.data);
-                updateMeter(data);
+                updateMeter(JSON.parse(e.data));
             });
 
             eventSource.addEventListener('status', (e) => {
@@ -504,29 +633,9 @@
             });
         }
 
-        function updateMeter(data) {
-            document.getElementById('fwdPower').textContent = data.fwd_power.toFixed(1);
-            document.getElementById('refPower').textContent = data.ref_power.toFixed(1);
-
-            const swrEl = document.getElementById('swrValue');
-            swrEl.textContent = data.swr.toFixed(1);
-
-            const swrContainer = document.getElementById('swrContainer');
-            swrContainer.className = 'meter-value swr' +
-                (data.swr > 2.0 ? ' bad' : data.swr > 1.5 ? ' warn' : '');
-
-            if (data.band) document.getElementById('bandValue').textContent = data.band;
-            if (data.mode) {
-                const modes = { 0: '--', 1: 'AUTO', 2: 'MANUAL', 3: 'BYPASS' };
-                document.getElementById('modeValue').textContent = modes[data.mode] || '--';
-            }
-            if (data.antenna !== undefined) {
-                const ants = { 0: '--', 1: 'A', 2: 'B' };
-                document.getElementById('antValue').textContent = ants[data.antenna] || '--';
-            }
-        }
-
-        // Send command
+        // ============================================================
+        // Commands
+        // ============================================================
         async function sendCommand(cmd) {
             try {
                 const resp = await fetch('/api/command/' + cmd, { method: 'POST' });
@@ -541,7 +650,9 @@
             }
         }
 
-        // Load current settings
+        // ============================================================
+        // Settings
+        // ============================================================
         async function loadSettings() {
             try {
                 const resp = await fetch('/api/config');
@@ -552,12 +663,9 @@
                 if (data.webUsername) document.getElementById('webUser').value = data.webUsername;
                 if (data.meterPsuVoltage) document.getElementById('psuVoltage').value = data.meterPsuVoltage;
                 if (data.wifiSSID) document.getElementById('ssid').value = data.wifiSSID;
-            } catch (err) {
-                // Settings endpoint not available
-            }
+            } catch (err) {}
         }
 
-        // Save settings
         async function saveSettings() {
             const config = {
                 mqttBroker: document.getElementById('mqttBroker').value,
@@ -588,7 +696,6 @@
             }
         }
 
-        // Reset settings
         async function resetSettings() {
             if (!confirm('Reset all settings to defaults? This will restart the device.')) return;
             try {
@@ -604,6 +711,7 @@
         }
 
         // Initialize
+        drawMeter();
         connectSSE();
         loadSettings();
     </script>
