@@ -12,8 +12,7 @@
 ConfigManager configManager;
 
 static DNSServer* dnsServer = nullptr;
-static uint32_t portalStart = 0;
-static const uint32_t PORTAL_TIMEOUT = 300000; // 5 minutes
+static const uint32_t PORTAL_HEAP_LOG_INTERVAL_MS = 30000;
 
 // HTTPS server instance
 static httpsserver::HTTPSServer* httpsServer = nullptr;
@@ -320,10 +319,11 @@ bool ConfigManager::setupWiFi() {
     // Start captive portal web server
     startPortalServer();
 
-    portalStart = millis();
-
-    // Captive portal loop
-    while (millis() - portalStart < PORTAL_TIMEOUT) {
+    // Portal runs until the user successfully joins a network. There is no
+    // other configuration path on this device, so a hard timeout would brick
+    // first-boot setup for any user who doesn't finish quickly enough.
+    uint32_t nextHeapLog = millis();
+    while (true) {
         dnsServer->processNextRequest();
         if (httpsServer) httpsServer->loop();
 
@@ -337,17 +337,16 @@ bool ConfigManager::setupWiFi() {
             return true;
         }
 
+        if ((int32_t)(millis() - nextHeapLog) >= 0) {
+            nextHeapLog += PORTAL_HEAP_LOG_INTERVAL_MS;
+            Serial.printf("portal: uptime=%lus heap_free=%u min_free=%u\n",
+                          (unsigned long)(millis() / 1000),
+                          (unsigned)ESP.getFreeHeap(),
+                          (unsigned)ESP.getMinFreeHeap());
+        }
+
         delay(10);
     }
-
-    // Timeout
-    Serial.println("\nConfiguration portal timed out");
-    stopPortalServer();
-    if (dnsServer) {
-        delete dnsServer;
-        dnsServer = nullptr;
-    }
-    return false;
 }
 
 void ConfigManager::reset() {

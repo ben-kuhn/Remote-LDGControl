@@ -388,12 +388,20 @@ void setup() {
 void loop() {
     tuner.process();
 
-    // WiFi reconnection
+    // WiFi reconnection — only manage STA when STA is actually configured.
+    // In AP-only mode (captive portal still running, never configured) there
+    // is no STA to reconnect, and WiFi.status() returns disconnected forever.
     if (millis() - lastWiFiCheck > 10000) {
         lastWiFiCheck = millis();
-        if (WiFi.status() != WL_CONNECTED) {
+        wifi_mode_t mode = WiFi.getMode();
+        bool staActive = (mode == WIFI_MODE_STA || mode == WIFI_MODE_APSTA);
+        if (!staActive) {
             wifiConnected = false;
-            Serial.println("WiFi disconnected, attempting reconnect...");
+        } else if (WiFi.status() != WL_CONNECTED) {
+            if (wifiConnected) {
+                Serial.println("WiFi disconnected, attempting reconnect...");
+            }
+            wifiConnected = false;
             WiFi.reconnect();
         } else if (!wifiConnected) {
             wifiConnected = true;
