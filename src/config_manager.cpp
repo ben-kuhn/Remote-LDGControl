@@ -248,12 +248,21 @@ button.secondary{background:transparent;color:#22c55e;border:1px solid #22c55e;m
 <script>
 let selectedSSID='';
 function scan(){fetch('/scan').then(r=>r.json()).then(nets=>{
-let h='';nets.forEach(n=>{
-h+='<div class="net-item" onclick="selNet(this,\''+n.ssid.replace(/'/g,"\\'")+'\')">'+n.ssid+
-'<span class="net-rssi">'+n.rssi+'dBm</span>'+
-(n.secure?'<span class="lock">&#128274;</span>':'')+'</div>';
-});document.getElementById('netList').innerHTML=h||'No networks found';
-}).catch(()=>document.getElementById('netList').innerHTML='<div style="padding:12px;color:#ef4444;text-align:center">Scan failed</div>');
+var nl=document.getElementById('netList');nl.textContent='';
+if(!nets.length){nl.textContent='No networks found';return;}
+nets.forEach(n=>{
+var item=document.createElement('div');
+item.className='net-item';
+item.addEventListener('click',function(){selNet(item,n.ssid);});
+item.textContent=n.ssid;
+var rssi=document.createElement('span');
+rssi.className='net-rssi';
+rssi.textContent=n.rssi+'dBm';
+item.appendChild(rssi);
+if(n.secure){var lk=document.createElement('span');lk.className='lock';lk.textContent='\uD83D\uDD12';item.appendChild(lk);}
+nl.appendChild(item);
+});
+}).catch(()=>{var nl=document.getElementById('netList');nl.textContent='';var d=document.createElement('div');d.style.cssText='padding:12px;color:#ef4444;text-align:center';d.textContent='Scan failed';nl.appendChild(d);});
 }
 function selNet(el,ssid){document.querySelectorAll('.net-item').forEach(e=>e.classList.remove('selected'));el.classList.add('selected');selectedSSID=ssid;}
 function goStep(n){document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));document.getElementById('step'+n).classList.add('active');}
