@@ -66,18 +66,19 @@
 #define DISPLAY_HEIGHT          320
 #define DISPLAY_ROTATION        1
 
-// BTT TFT35-SPI uses ILI9488 or similar
-#define TFT_MOSI                23
-#define TFT_MISO                19
-#define TFT_SCLK                18
-#define TFT_CS                  5
-#define TFT_DC                  15
-#define TFT_RST                 26
-#define TFT_BL                  32
+// BTT TFT35-SPI V2.1 (ILI9488 display + NS2009 I2C touch)
+// JST-XH 10-pin: IORQ, SCL, SDA, RS, NSS, SCK, MOSI, MISO, GND, +5V
+#define TFT_MOSI                23    // Pin 7 - MOSI
+#define TFT_MISO                19    // Pin 8 - MISO
+#define TFT_SCLK                18    // Pin 6 - SCK
+#define TFT_CS                  5     // Pin 5 - NSS (chip select)
+#define TFT_DC                  15    // Pin 4 - RS (data/command)
+#define TFT_BL                  32    // Backlight (always on via resistor, or PWM)
 
-// Touch (XPT2046) - shares SPI bus with display (MOSI/MISO/SCLK)
-#define TOUCH_CS                33
-#define TOUCH_IRQ               39
+// Touch (NS2009) - uses I2C, not SPI
+#define TOUCH_SDA               21    // Pin 3 - SDA (I2C data)
+#define TOUCH_SCL               22    // Pin 2 - SCL (I2C clock)
+#define TOUCH_IRQ               39    // Pin 1 - IORQ (touch interrupt, optional)
 #endif
 
 // ============================================================
@@ -122,26 +123,13 @@
 // ============================================================
 // Meter Calculation
 // ============================================================
-#define METER_PSU_VOLTAGE       13.8  // Tuner's power supply voltage (affects power/SWR accuracy)
-#define METER_POWER_SCALE       1000  // 1000 for AG-1000ProII, 600 for AG-600ProII
+#define METER_PSU_VOLTAGE       13.8  // Default/fallback PSU voltage
+#define METER_POWER_SCALE       1000  // 1000 for AT-1000ProII, 600 for AT-600ProII
 #define METER_LOW_SCALE         100   // Low range scale (100W for both models)
-#define METER_POWER_SCALE       1000  // 1000 for AG-1000ProII, 600 for AG-600ProII
-#define METER_LOW_SCALE         100   // Low range scale (100W for both models)
-#define METER_POWER_SCALE       1000  // 1000 for AG-1000ProII, 600 for AG-600ProII
-#define METER_LOW_SCALE         100   // Low range scale (100W for both models)
-#define METER_POWER_SCALE       1000  // 1000 for AG-1000ProII, 600 for AG-600ProII
-#define METER_LOW_SCALE         100   // Low range scale (100W for both models)
-#define METER_POWER_SCALE       1000  // 1000 for AG-1000ProII, 600 for AG-600ProII
-#define METER_LOW_SCALE         100   // Low range scale (100W for both models)
-#define METER_POWER_SCALE       1000  // 1000 for AG-1000ProII, 600 for AG-600ProII
-#define METER_LOW_SCALE         100   // Low range scale (100W for both models)
-#define METER_POWER_SCALE       1000  // 1000 for AG-1000ProII, 600 for AG-600ProII
-#define METER_LOW_SCALE         100   // Low range scale (100W for both)
-#define METER_POWER_SCALE       1000  // 1000 for AG-1000ProII, 600 for AG-600ProII
-#define METER_LOW_SCALE         100   // Low range scale (100W for both)
-#define METER_POWER_SCALE       1000  // 1000 for AG-1000ProII, 600 for AG-600ProII
-#define METER_LOW_SCALE         100   // Low range scale (100W for both)
-#define METER_POWER_SCALE       1000  // 1000 for AG-1000ProII, 600 for AG-600ProII
-#define METER_LOW_SCALE         100   // Low range scale (100W for both)
+
+// Voltage Sense (ADC) - auto-detect PSU voltage
+#define VOLTAGE_SENSE_PIN       34    // GPIO 34 (ADC1_CH6, input-only)
+#define VOLTAGE_DIVIDER_RATIO   5.545 // (R1+R2)/R2 = (100k+22k)/22k
+#define VOLTAGE_SAMPLES         32    // Number of ADC samples to average
 
 #endif // CONFIG_H

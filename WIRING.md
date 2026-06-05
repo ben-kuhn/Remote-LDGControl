@@ -53,7 +53,7 @@
 
 ## Connection 1: Tuner TTL Interface + Power (4-pin mini-DIN)
 
-**CRITICAL**: The mini-DIN connector on the AG-1000ProII is NOT standard S-Video. Pin 1 carries +12V. Do NOT use an S-Video cable.
+**CRITICAL**: The mini-DIN connector on the AT-1000ProII is NOT standard S-Video. Pin 1 carries +12V. Do NOT use an S-Video cable.
 
 ### Power from Tuner +12V (Linear Regulator)
 
@@ -94,7 +94,7 @@ Tuner +12V (mini-DIN Pin 1)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│              LDG AG-1000ProII Rear Panel                │
+│              LDG AT-1000ProII Rear Panel                │
 │                                                         │
 │   4-pin mini-DIN (REMOTE connector)                     │
 │                                                         │
@@ -214,12 +214,23 @@ Only the tuner TTL interface is needed.
 | Level shifter (optional) | 1 | TXS0108E or 74HCT245 if 3.3V logic issues |
 | BTT TFT35-SPI display | 1 | For display unit only |
 
+## First-Time Setup
+
+After flashing, the ESP32 creates a WiFi access point:
+
+| Setting | Value |
+|---------|-------|
+| SSID | `LDGConfig` |
+| Password | `configure` |
+
+Connect to it — a captive portal will open for your home WiFi setup. Once connected to your network, access the web UI at the assigned IP.
+
 ## Assembly Notes
 
 1. **Common ground**: All GND connections must be tied together (ESP32, tuner, display, regulator)
 2. **Power from tuner**: The tuner's +12V on pin 1 powers the ESP32 via an LM2940CT linear regulator. A heatsink is required (~2.5W dissipation at 350mA).
 3. **Regulator capacitors**: Place the 100nF ceramic close to the regulator input, and the 10µF tantalum close to the output. These are required for stability.
-4. **Level shifting**: The AG-1000ProII uses 5V TTL. Most ESP32 GPIO are 5V-tolerant, but if you get serial errors, add a level shifter.
+4. **Level shifting**: The AT-1000ProII uses 5V TTL. Most ESP32 GPIO are 5V-tolerant, but if you get serial errors, add a level shifter.
 5. **SPI bus**: The display and touchscreen share MOSI/MISO/SCLK. Only CS pins are separate.
 6. **Backlight**: GPIO 32 controls backlight via PWM. Set to HIGH for full brightness.
 7. **Touch IRQ**: GPIO 39 is input-only, which is fine for the touch interrupt line.

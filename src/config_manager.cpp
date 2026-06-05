@@ -2,6 +2,12 @@
 #include <DNSServer.h>
 #include <WiFi.h>
 #include <ArduinoJson.h>
+#include <HTTPSServer.hpp>
+#include <SSLCert.hpp>
+#include <HTTPRequest.hpp>
+#include <HTTPResponse.hpp>
+#include <mbedtls/base64.h>
+#include "portal_cert.h"
 
 ConfigManager configManager;
 
@@ -9,59 +15,160 @@ static DNSServer* dnsServer = nullptr;
 static uint32_t portalStart = 0;
 static const uint32_t PORTAL_TIMEOUT = 300000; // 5 minutes
 
+// HTTPS server instance
+static httpsserver::HTTPSServer* httpsServer = nullptr;
+static httpsserver::SSLCert* sslCert = nullptr;
+
+// Handler functions for HTTPS server
+void handleRoot(httpsserver::HTTPRequest * req, httpsserver::HTTPResponse * res) {
+    res->setHeader("Content-Type", "text/html");
+    res->print(configManager.portalHTML());
+}
+
+void handleScan(httpsserver::HTTPRequest * req, httpsserver::HTTPResponse * res) {
+    res->setHeader("Content-Type", "application/json");
+    res->print(configManager.scanNetworksJSON());
+}
+
+void handleSave(httpsserver::HTTPRequest * req, httpsserver::HTTPResponse * res) {
+    res->setHeader("Content-Type", "application/json");
+    
+    if (req->getMethod() == "POST") {
+        // Read POST body
+        std::string body = "";
+        uint8_t buf[128];
+        size_t len;
+        while ((len = req->readBytes(buf, sizeof(buf))) > 0) {
+            body.append((char*)buf, len);
+        }
+        
+        // Parse form data
+        String bodyStr = String(body.c_str());
+        String ssid = "", wifiPass = "", webUser = "", webPass = "";
+        
+        int pos = 0;
+        while (pos < bodyStr.length()) {
+            int ampPos = bodyStr.indexOf('&', pos);
+            if (ampPos < 0) ampPos = bodyStr.length();
+            String pair = bodyStr.substring(pos, ampPos);
+            int eqPos = pair.indexOf('=');
+            if (eqPos >= 0) {
+                String key = pair.substring(0, eqPos);
+                String value = pair.substring(eqPos + 1);
+                value.replace("+", " ");
+                value.replace("%20", " ");
+                
+                if (key == "ssid") ssid = value;
+                else if (key == "wifiPass") wifiPass = value;
+                else if (key == "webUser") webUser = value;
+                else if (key == "webPass") webPass = value;
+            }
+            pos = ampPos + 1;
+        }
+        
+        if (ssid.length() == 0) {
+            res->setStatusCode(400);
+            res->print("{\"error\":\"no ssid\"}");
+        } else {
+            // Save configuration
+            const DeviceConfig& cfg = configManager.get();
+            DeviceConfig newCfg = cfg;
+            newCfg.configured = true;
+            if (webUser.length() > 0) strncpy(newCfg.webUsername, webUser.c_str(), sizeof(newCfg.webUsername) - 1);
+            if (webPass.length() > 0) strncpy(newCfg.webPassword, webPass.c_str(), sizeof(newCfg.webPassword) - 1);
+            configManager.update(newCfg);
+            
+            res->print("{\"status\":\"ok\"}");
+            
+            // Connect to WiFi
+            delay(500);
+            WiFi.mode(WIFI_AP_STA);
+            WiFi.begin(ssid.c_str(), wifiPass.c_str());
+            
+            uint32_t start = millis();
+            while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
+                delay(100);
+            }
+            
+            if (WiFi.status() != WL_CONNECTED) {
+                WiFi.mode(WIFI_AP);
+            }
+        }
+    } else {
+        res->setStatusCode(405);
+        res->print("{\"error\":\"method not allowed\"}");
+    }
+}
+
 void ConfigManager::startPortalServer() {
-    m_portalServer = new AsyncWebServer(80);
+    Serial.println("startPortalServer: Starting...");
+    
+    // Initialize certificate
+    if (!portalCert_init()) {
+        Serial.println("ERROR: Failed to init portal certificate");
+        return;
+    }
+    Serial.println("startPortalServer: Certificate initialized");
 
-    // Captive portal redirect
-    m_portalServer->onNotFound([this](AsyncWebServerRequest* request) {
-        if (request->host() != WiFi.softAPIP().toString()) {
-            request->redirect(String("http://") + WiFi.softAPIP().toString());
-        } else {
-            request->send(200, "text/html",
-                "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
-                "<title>LDG Tuner Setup</title>"
-                "<style>body{font-family:sans-serif;max-width:400px;margin:40px auto;padding:20px}"
-                "input{width:100%;padding:8px;margin:5px 0 15px;box-sizing:border-box}"
-                "button{width:100%;padding:12px;background:#0f3460;color:#fff;border:none;border-radius:5px;cursor:pointer}"
-                "</style></head><body>"
-                "<h2>LDG Tuner Setup</h2>"
-                "<form id='wifiForm'><label>WiFi SSID</label><input name='ssid' required>"
-                "<label>WiFi Password</label><input name='pass' type='password' required>"
-                "<button type='submit'>Connect</button></form>"
-                "<script>document.getElementById('wifiForm').onsubmit=function(e){"
-                "e.preventDefault();var f=new FormData(this);"
-                "fetch('/connect',{method:'POST',body:f}).then(r=>r.json()).then(d=>{"
-                "if(d.status=='connecting'){document.body.innerHTML='<h2>Connecting...</h2>';"
-                "setTimeout(()=>location.reload(),15000)}})}</script></body></html>"
-            );
-        }
-    });
-
-    // Handle WiFi connection
-    m_portalServer->on("/connect", HTTP_POST, [this](AsyncWebServerRequest* request) {
-        if (request->hasParam("ssid", true) && request->hasParam("pass", true)) {
-            String ssid = request->getParam("ssid", true)->value();
-            String pass = request->getParam("pass", true)->value();
-
-            WiFi.begin(ssid.c_str(), pass.c_str());
-
-            JsonDocument doc;
-            doc["status"] = "connecting";
-            String response;
-            serializeJson(doc, response);
-            request->send(200, "application/json", response);
-        } else {
-            request->send(400, "application/json", "{\"error\":\"missing credentials\"}");
-        }
-    });
-
-    m_portalServer->begin();
+    // Create SSL certificate from stored data
+    String certStr = portalCert_getCert();
+    String keyStr = portalCert_getKey();
+    Serial.printf("startPortalServer: Cert length: %d, Key length: %d\n", certStr.length(), keyStr.length());
+    
+    // Decode base64 to DER
+    size_t certDerLen = 0, keyDerLen = 0;
+    mbedtls_base64_decode(NULL, 0, &certDerLen, (const unsigned char*)certStr.c_str(), certStr.length());
+    mbedtls_base64_decode(NULL, 0, &keyDerLen, (const unsigned char*)keyStr.c_str(), keyStr.length());
+    Serial.printf("startPortalServer: DER cert length: %d, key length: %d\n", certDerLen, keyDerLen);
+    
+    unsigned char* certDer = (unsigned char*)malloc(certDerLen);
+    unsigned char* keyDer = (unsigned char*)malloc(keyDerLen);
+    
+    if (!certDer || !keyDer) {
+        Serial.println("ERROR: Failed to allocate memory for cert/key");
+        free(certDer);
+        free(keyDer);
+        return;
+    }
+    
+    mbedtls_base64_decode(certDer, certDerLen, &certDerLen, (const unsigned char*)certStr.c_str(), certStr.length());
+    mbedtls_base64_decode(keyDer, keyDerLen, &keyDerLen, (const unsigned char*)keyStr.c_str(), keyStr.length());
+    Serial.println("startPortalServer: Base64 decoded");
+    
+    // Create SSLCert
+    sslCert = new httpsserver::SSLCert(certDer, certDerLen, keyDer, keyDerLen);
+    Serial.println("startPortalServer: SSLCert created");
+    
+    // Create HTTPS server
+    httpsServer = new httpsserver::HTTPSServer(sslCert, 443, 4);
+    Serial.println("startPortalServer: HTTPSServer created");
+    
+    // Create resource nodes
+    httpsserver::ResourceNode* root = new httpsserver::ResourceNode("/", "GET", &handleRoot);
+    httpsserver::ResourceNode* scan = new httpsserver::ResourceNode("/scan", "GET", &handleScan);
+    httpsserver::ResourceNode* save = new httpsserver::ResourceNode("/save", "POST", &handleSave);
+    Serial.println("startPortalServer: Resource nodes created");
+    
+    // Register nodes
+    httpsServer->registerNode(root);
+    httpsServer->registerNode(scan);
+    httpsServer->registerNode(save);
+    Serial.println("startPortalServer: Nodes registered");
+    
+    // Start server
+    httpsServer->start();
+    Serial.println("startPortalServer: Server started");
 }
 
 void ConfigManager::stopPortalServer() {
-    if (m_portalServer) {
-        delete m_portalServer;
-        m_portalServer = nullptr;
+    if (httpsServer) {
+        httpsServer->stop();
+        delete httpsServer;
+        httpsServer = nullptr;
+    }
+    if (sslCert) {
+        delete sslCert;
+        sslCert = nullptr;
     }
 }
 
@@ -89,6 +196,98 @@ bool ConfigManager::update(const DeviceConfig& config) {
     m_config = config;
     m_config.configured = true;
     return save();
+}
+
+String ConfigManager::portalHTML() {
+    return R"RAW(<!DOCTYPE html>
+<html><head><meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>LDG Tuner Setup</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,sans-serif;background:#0a0a1a;color:#e8e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#1a1d2e;border:1px solid #2a2d3e;border-radius:10px;padding:24px;width:100%;max-width:420px}
+h2{color:#22c55e;font-size:18px;margin-bottom:4px}
+p.sub{color:#6b7280;font-size:12px;margin-bottom:16px}
+label{display:block;font-size:12px;color:#888;margin-bottom:4px;margin-top:12px}
+input{width:100%;padding:10px;background:#151725;border:1px solid #2a2d3e;border-radius:6px;color:#e8e8f0;font-size:14px;outline:none}
+input:focus{border-color:#22c55e}
+button{width:100%;padding:12px;margin-top:20px;background:#22c55e;color:#000;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer}
+button:hover{background:#16a34a}
+button.secondary{background:transparent;color:#22c55e;border:1px solid #22c55e;margin-top:10px}
+.step{display:none}.step.active{display:block}
+.net-item{padding:8px 10px;border-bottom:1px solid #2a2d3e;cursor:pointer;font-size:13px}
+.net-item:hover{background:#1a1d2e}
+.net-item.selected{background:#22c55e22}
+.net-rssi{float:right;color:#6b7280;font-size:11px}
+.lock{color:#666;font-size:11px}
+#netList{max-height:200px;overflow-y:auto;border:1px solid #2a2d3e;border-radius:6px;margin-top:4px}
+</style></head><body>
+<div class='card'>
+<h2>LDG Tuner Setup</h2>
+<p class='sub'>Configure your device</p>
+<div class='step active' id='step1'>
+<h3 style='font-size:14px;margin-bottom:8px'>Select WiFi Network</h3>
+<div id='netList'><div style='padding:12px;color:#6b7280;text-align:center'>Scanning...</div></div>
+<label>WiFi Password</label>
+<input type='password' id='wifiPass' placeholder='Network password'>
+<button onclick='doStep1()'>Next</button>
+</div>
+<div class='step' id='step2'>
+<h3 style='font-size:14px;margin-bottom:8px'>Web UI Password</h3>
+<label>Web Username</label>
+<input type='text' id='webUser' value='admin'>
+<label>Web Password</label>
+<input type='password' id='webPass' placeholder='Choose a strong password'>
+<button onclick='doStep2()'>Save &amp; Connect</button>
+<button class='secondary' onclick='goStep(1)'>Back</button>
+</div>
+<div class='step' id='step3'>
+<h3 style='font-size:14px;margin-bottom:8px'>Connecting...</h3>
+<p class='sub'>The device is connecting to your network.</p>
+</div>
+</div>
+<script>
+let selectedSSID='';
+function scan(){fetch('/scan').then(r=>r.json()).then(nets=>{
+let h='';nets.forEach(n=>{
+h+='<div class="net-item" onclick="selNet(this,\''+n.ssid.replace(/'/g,"\\'")+'\')">'+n.ssid+
+'<span class="net-rssi">'+n.rssi+'dBm</span>'+
+(n.secure?'<span class="lock">&#128274;</span>':'')+'</div>';
+});document.getElementById('netList').innerHTML=h||'No networks found';
+}).catch(()=>document.getElementById('netList').innerHTML='<div style="padding:12px;color:#ef4444;text-align:center">Scan failed</div>');
+}
+function selNet(el,ssid){document.querySelectorAll('.net-item').forEach(e=>e.classList.remove('selected'));el.classList.add('selected');selectedSSID=ssid;}
+function goStep(n){document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));document.getElementById('step'+n).classList.add('active');}
+function doStep1(){if(!selectedSSID){alert('Select a network');return;}goStep(2);}
+function doStep2(){
+let d=new FormData();
+d.append('ssid',selectedSSID);d.append('wifiPass',document.getElementById('wifiPass').value);
+d.append('webUser',document.getElementById('webUser').value);
+d.append('webPass',document.getElementById('webPass').value);
+goStep(3);
+fetch('/save',{method:'POST',body:d}).then(r=>r.json()).then(d=>{
+if(d.status==='ok'){setTimeout(()=>location.reload(),12000);}
+else{alert('Error: '+d.error);goStep(2);}
+}).catch(()=>{setTimeout(()=>location.reload(),12000);});
+}
+scan();
+</script></body></html>)RAW";
+}
+
+String ConfigManager::scanNetworksJSON() {
+    int n = WiFi.scanNetworks();
+    JsonDocument doc;
+    JsonArray arr = doc.to<JsonArray>();
+    for (int i = 0; i < n && i < 20; i++) {
+        JsonObject o = arr.add<JsonObject>();
+        o["ssid"] = WiFi.SSID(i);
+        o["rssi"] = WiFi.RSSI(i);
+        o["secure"] = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
+    }
+    WiFi.scanDelete();
+    String r;
+    serializeJson(doc, r);
+    return r;
 }
 
 bool ConfigManager::setupWiFi() {
@@ -126,6 +325,7 @@ bool ConfigManager::setupWiFi() {
     // Captive portal loop
     while (millis() - portalStart < PORTAL_TIMEOUT) {
         dnsServer->processNextRequest();
+        if (httpsServer) httpsServer->loop();
 
         if (WiFi.status() == WL_CONNECTED) {
             Serial.printf("\nConnected: %s\n", WiFi.localIP().toString().c_str());

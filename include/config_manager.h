@@ -3,7 +3,6 @@
 
 #include <Arduino.h>
 #include <Preferences.h>
-#include <ESPAsyncWebServer.h>
 #include "config.h"
 
 struct DeviceConfig {
@@ -32,11 +31,14 @@ public:
     // Captive portal web server
     void startPortalServer();
     void stopPortalServer();
+    
+    // Portal content
+    String portalHTML();
+    String scanNetworksJSON();
 
 private:
     Preferences m_prefs;
     DeviceConfig m_config;
-    AsyncWebServer* m_portalServer;
 
     void loadDefaults();
     bool save();

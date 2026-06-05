@@ -6,24 +6,25 @@
     <title>LDG Tuner Control</title>
     <style>
         :root {
-            --bg-primary: #0a0a1a;
-            --bg-secondary: #111122;
-            --bg-card: #16213e;
-            --bg-input: #1a1a2e;
-            --border: #0f3460;
-            --text-primary: #eee;
-            --text-secondary: #888;
-            --accent-green: #00ff00;
-            --accent-red: #ff0000;
-            --accent-yellow: #ffcc00;
-            --accent-blue: #2255aa;
-            --accent-orange: #cc8800;
-            --btn-red: #cc3333;
-            --btn-red-hover: #ff4444;
-            --btn-blue: #2255aa;
-            --btn-blue-hover: #3366cc;
-            --btn-orange: #cc8800;
-            --btn-orange-hover: #ffaa00;
+            --bg-primary: #0b0c10;
+            --bg-secondary: #12141c;
+            --bg-card: #1a1d2e;
+            --bg-input: #151725;
+            --border: #2a2d3e;
+            --text-primary: #e8e8f0;
+            --text-secondary: #6b7280;
+            --accent-green: #22c55e;
+            --accent-green-dim: #16a34a;
+            --accent-red: #ef4444;
+            --accent-yellow: #eab308;
+            --accent-blue: #3b82f6;
+            --accent-orange: #f59e0b;
+            --btn-red: #dc2626;
+            --btn-red-hover: #ef4444;
+            --btn-blue: #2563eb;
+            --btn-blue-hover: #3b82f6;
+            --btn-orange: #d97706;
+            --btn-orange-hover: #f59e0b;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -44,7 +45,7 @@
             align-items: center;
         }
 
-        .header h1 { font-size: 1rem; color: var(--accent-green); font-weight: 600; }
+        .header h1 { font-size: 1rem; color: var(--accent-green); font-weight: 600; letter-spacing: 0.02em; }
 
         .header-status { font-size: 0.75rem; color: var(--text-secondary); }
 
@@ -84,6 +85,7 @@
             color: var(--accent-green);
             border-bottom: 2px solid var(--accent-green);
             background: var(--bg-card);
+            font-weight: 500;
         }
 
         .main {
@@ -96,7 +98,8 @@
         }
 
         .tab-content { display: none; width: 100%; }
-        .tab-content.active { display: block; }
+        .tab-content.active { display: flex; flex-direction: row; gap: 0.75rem; }
+        #tab-settings.active { display: block; }
 
         /* Meter panel */
         .meter-panel { flex: 2; min-width: 0; }
@@ -104,8 +107,8 @@
         .meter-container {
             background: var(--bg-secondary);
             border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 0.4rem;
+            border-radius: 8px;
+            padding: 0.5rem;
         }
 
         #meterCanvas {
@@ -133,8 +136,8 @@
         .status-bar {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 5px;
-            padding: 0.5rem 0.6rem;
+            border-radius: 6px;
+            padding: 0.6rem 0.7rem;
             margin-bottom: 0.6rem;
             font-size: 0.8rem;
         }
@@ -152,32 +155,33 @@
         .button-stack { display: flex; flex-direction: column; gap: 0.35rem; }
 
         .btn {
-            padding: 0.6rem 0.4rem;
+            padding: 0.7rem 0.5rem;
             border: none;
-            border-radius: 4px;
+            border-radius: 5px;
             font-size: 0.75rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.15s;
             text-transform: uppercase;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.04em;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
-        .btn:active { transform: scale(0.97); }
+        .btn:active { transform: scale(0.97); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
         .btn-red { background: var(--btn-red); color: #fff; }
-        .btn-red:hover { background: var(--btn-red-hover); }
+        .btn-red:hover { background: var(--btn-red-hover); box-shadow: 0 3px 6px rgba(220, 38, 38, 0.3); }
         .btn-blue { background: var(--btn-blue); color: #fff; }
-        .btn-blue:hover { background: var(--btn-blue-hover); }
+        .btn-blue:hover { background: var(--btn-blue-hover); box-shadow: 0 3px 6px rgba(37, 99, 235, 0.3); }
         .btn-orange { background: var(--btn-orange); color: #fff; }
-        .btn-orange:hover { background: var(--btn-orange-hover); }
+        .btn-orange:hover { background: var(--btn-orange-hover); box-shadow: 0 3px 6px rgba(217, 119, 6, 0.3); }
 
         /* Settings */
         .settings-section {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 0.75rem;
-            margin-bottom: 0.75rem;
+            border-radius: 8px;
+            padding: 0.85rem;
+            margin-bottom: 0.85rem;
         }
 
         .settings-section h3 {
@@ -215,44 +219,49 @@
 
         .btn-save {
             width: 100%;
-            padding: 0.55rem;
+            padding: 0.65rem;
             background: var(--accent-green);
             color: #000;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             font-size: 0.8rem;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 0.3rem;
+            margin-top: 0.4rem;
+            transition: all 0.15s;
         }
 
-        .btn-save:hover { opacity: 0.9; }
+        .btn-save:hover { background: var(--accent-green-dim); }
 
         .btn-reset {
             width: 100%;
-            padding: 0.55rem;
+            padding: 0.65rem;
             background: transparent;
             color: var(--accent-red);
             border: 1px solid var(--accent-red);
-            border-radius: 5px;
+            border-radius: 6px;
             font-size: 0.8rem;
             cursor: pointer;
-            margin-top: 0.3rem;
+            margin-top: 0.4rem;
+            transition: all 0.15s;
         }
+
+        .btn-reset:hover { background: rgba(239, 68, 68, 0.1); }
 
         .toast {
             position: fixed;
-            bottom: 0.75rem;
+            bottom: 1rem;
             left: 50%;
             transform: translateX(-50%) translateY(100px);
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 5px;
-            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            padding: 0.6rem 1.2rem;
             font-size: 0.8rem;
             opacity: 0;
             transition: all 0.3s;
             z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         }
 
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
@@ -260,7 +269,7 @@
         .toast.error { border-color: var(--accent-red); }
 
         @media (max-width: 550px) {
-            .main { flex-direction: column; }
+            #tab-control.active { flex-direction: column; }
             .meter-panel { order: 1; }
             .control-panel { order: 2; min-width: 0; }
             .button-stack {
@@ -316,13 +325,16 @@
             <div class="settings-section">
                 <h3>Network</h3>
                 <div class="form-group">
-                    <label>WiFi SSID</label>
-                    <input type="text" id="ssid" placeholder="your_network">
+                    <label>Connected SSID</label>
+                    <input type="text" id="ssid" readonly style="opacity: 0.7; cursor: not-allowed;">
                 </div>
                 <div class="form-group">
-                    <label>WiFi Password</label>
-                    <input type="password" id="wifiPass" placeholder="your_password">
+                    <label>IP Address</label>
+                    <input type="text" id="wifiIP" readonly style="opacity: 0.7; cursor: not-allowed;">
                 </div>
+                <p style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.4rem;">
+                    To change WiFi network, press the reset button on the device to launch the captive portal.
+                </p>
             </div>
             <div class="settings-section">
                 <h3>MQTT</h3>
@@ -421,7 +433,7 @@
             ctx.clearRect(0, 0, w, h);
 
             // Background
-            ctx.fillStyle = '#0d0d1a';
+            ctx.fillStyle = '#0b0c10';
             ctx.fillRect(0, 0, w, h);
 
             // Draw SWR curves first (behind needles)
@@ -479,12 +491,12 @@
             const refPy = cy;
 
             // Pivot dots
-            ctx.fillStyle = '#006600';
+            ctx.fillStyle = '#166534';
             ctx.beginPath();
             ctx.arc(fwdPx, fwdPy, 10, 0, 2 * Math.PI);
             ctx.fill();
 
-            ctx.fillStyle = '#660000';
+            ctx.fillStyle = '#7f1d1d';
             ctx.beginPath();
             ctx.arc(refPx, refPy, 10, 0, 2 * Math.PI);
             ctx.fill();
@@ -503,7 +515,7 @@
             const fwdNx = fwdPx + Math.cos(fwdAngle) * fwdLen;
             const fwdNy = fwdPy + Math.sin(fwdAngle) * fwdLen;
 
-            ctx.strokeStyle = '#00ff00';
+            ctx.strokeStyle = '#22c55e';
             ctx.lineWidth = 4;
             ctx.lineCap = 'round';
             ctx.beginPath();
@@ -516,7 +528,7 @@
             const refNx = refPx + Math.cos(refAngle) * refLen;
             const refNy = refPy + Math.sin(refAngle) * refLen;
 
-            ctx.strokeStyle = '#ff0000';
+            ctx.strokeStyle = '#ef4444';
             ctx.lineWidth = 4;
             ctx.beginPath();
             ctx.moveTo(refPx, refPy);
@@ -524,110 +536,30 @@
             ctx.stroke();
 
             // Pivot center dots (on top of needles)
-            ctx.fillStyle = '#00cc00';
+            ctx.fillStyle = '#22c55e';
             ctx.beginPath();
             ctx.arc(fwdPx, fwdPy, 5, 0, 2 * Math.PI);
             ctx.fill();
 
-            ctx.fillStyle = '#cc0000';
+            ctx.fillStyle = '#ef4444';
             ctx.beginPath();
             ctx.arc(refPx, refPy, 5, 0, 2 * Math.PI);
             ctx.fill();
 
             // Power readouts at bottom
-            ctx.fillStyle = '#00ff00';
+            ctx.fillStyle = '#22c55e';
             ctx.font = 'bold 22px -apple-system, sans-serif';
             ctx.textAlign = 'right';
             ctx.fillText(meterState.fwdPower.toFixed(1) + 'W', cx + radius - 10, cy + 35);
 
-            ctx.fillStyle = '#ff0000';
-            ctx.textAlign = 'left';
-            ctx.fillText(meterState.refPower.toFixed(1) + 'W', cx - radius + 10, cy + 35);
-        }
-            }
-
-            // Scale label
-            ctx.fillStyle = '#666';
-            ctx.font = '20px -apple-system, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('WATTS', cx, cy - radius - 35);
-
-            // Pivot points
-            const fwdPx = cx + radius;  // bottom-right
-            const fwdPy = cy;
-            const refPx = cx - radius;  // bottom-left
-            const refPy = cy;
-
-            // Pivot dots
-            ctx.fillStyle = '#006600';
-            ctx.beginPath();
-            ctx.arc(fwdPx, fwdPy, 10, 0, 2 * Math.PI);
-            ctx.fill();
-
-            ctx.fillStyle = '#660000';
-            ctx.beginPath();
-            ctx.arc(refPx, refPy, 10, 0, 2 * Math.PI);
-            ctx.fill();
-
-            // Calculate needle angles
-            // Forward: 0 = horizontal (pointing left, PI), 1 = vertical (pointing up, 1.5*PI)
-            const fwdFrac = Math.min(meterState.fwdPower / meterState.maxPower, 1);
-            const fwdAngle = Math.PI + fwdFrac * (Math.PI / 2);
-
-            // Reflected: 0 = horizontal (pointing right, 0 or 2*PI), 1 = vertical (pointing up, 1.5*PI)
-            const refFrac = Math.min(meterState.refPower / meterState.maxPower, 1);
-            const refAngle = 2 * Math.PI - refFrac * (Math.PI / 2);
-
-            // Draw forward needle (green)
-            const fwdLen = radius - 15;
-            const fwdNx = fwdPx + Math.cos(fwdAngle) * fwdLen;
-            const fwdNy = fwdPy + Math.sin(fwdAngle) * fwdLen;
-
-            ctx.strokeStyle = '#00ff00';
-            ctx.lineWidth = 4;
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.moveTo(fwdPx, fwdPy);
-            ctx.lineTo(fwdNx, fwdNy);
-            ctx.stroke();
-
-            // Draw reflected needle (red)
-            const refLen = radius - 15;
-            const refNx = refPx + Math.cos(refAngle) * refLen;
-            const refNy = refPy + Math.sin(refAngle) * refLen;
-
-            ctx.strokeStyle = '#ff0000';
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(refPx, refPy);
-            ctx.lineTo(refNx, refNy);
-            ctx.stroke();
-
-            // Pivot center dots (on top of needles)
-            ctx.fillStyle = '#00cc00';
-            ctx.beginPath();
-            ctx.arc(fwdPx, fwdPy, 5, 0, 2 * Math.PI);
-            ctx.fill();
-
-            ctx.fillStyle = '#cc0000';
-            ctx.beginPath();
-            ctx.arc(refPx, refPy, 5, 0, 2 * Math.PI);
-            ctx.fill();
-
-            // Power readouts at bottom
-            ctx.fillStyle = '#00ff00';
-            ctx.font = 'bold 22px -apple-system, sans-serif';
-            ctx.textAlign = 'right';
-            ctx.fillText(meterState.fwdPower.toFixed(1) + 'W', cx + radius - 10, cy + 35);
-
-            ctx.fillStyle = '#ff0000';
+            ctx.fillStyle = '#ef4444';
             ctx.textAlign = 'left';
             ctx.fillText(meterState.refPower.toFixed(1) + 'W', cx - radius + 10, cy + 35);
         }
 
         function drawSWRCurves(cx, cy, radius) {
             const swrValues = [1.5, 2, 3, 5, 10];
-            const colors = ['#00ff00', '#88ff00', '#ffcc00', '#ff8800', '#ff4400'];
+            const colors = ['#22c55e', '#84cc16', '#eab308', '#f97316', '#ef4444'];
 
             for (let si = 0; si < swrValues.length; si++) {
                 const swr = swrValues[si];
@@ -782,6 +714,7 @@
                 if (data.webUsername) document.getElementById('webUser').value = data.webUsername;
                 if (data.meterPsuVoltage) document.getElementById('psuVoltage').value = data.meterPsuVoltage;
                 if (data.wifiSSID) document.getElementById('ssid').value = data.wifiSSID;
+                if (data.wifiIP) document.getElementById('wifiIP').value = data.wifiIP;
             } catch (err) {}
         }
 
@@ -793,9 +726,7 @@
                 mqttPassword: document.getElementById('mqttPass').value,
                 webUsername: document.getElementById('webUser').value,
                 webPassword: document.getElementById('webPass').value,
-                meterPsuVoltage: parseFloat(document.getElementById('psuVoltage').value),
-                ssid: document.getElementById('ssid').value,
-                wifiPassword: document.getElementById('wifiPass').value
+                meterPsuVoltage: parseFloat(document.getElementById('psuVoltage').value)
             };
 
             try {

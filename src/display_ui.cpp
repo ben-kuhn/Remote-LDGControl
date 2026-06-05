@@ -2,11 +2,35 @@
 
 #include "display_ui.h"
 #include <WiFi.h>
-#include <XPT2046_Touchscreen.h>
+#include <Wire.h>
 #include <math.h>
 
+// NS2009 I2C touch controller (BTT TFT35-SPI V2.1)
+// I2C address: 0x48
+#define NS2009_ADDR 0x48
+#define NS2009_CMD_READ_X 0xC0
+#define NS2009_CMD_READ_Y 0xD0
+
 DisplayUI* DisplayUI::s_instance = nullptr;
-XPT2046_Touchscreen ts(TOUCH_CS, TOUCH_IRQ);
+
+static bool ns2009Read(uint16_t* x, uint16_t* y) {
+    Wire.requestFrom(NS2009_ADDR, (uint8_t)5);
+    if (Wire.available() < 5) return false;
+    Wire.read(); // skip status
+    uint8_t xh = Wire.read();
+    uint8_t xl = Wire.read();
+    uint8_t yh = Wire.read();
+    uint8_t yl = Wire.read();
+    *x = (xh << 5) | (xl >> 3);
+    *y = (yh << 5) | (yl >> 3);
+    return true;
+}
+
+static bool tsTouched() {
+    Wire.beginTransmission(NS2009_ADDR);
+    Wire.write(NS2009_CMD_READ_X);
+    return (Wire.endTransmission() == 0);
+}
 
 DisplayUI::DisplayUI()
     : m_tft(nullptr), m_tuner(nullptr),
@@ -34,8 +58,7 @@ bool DisplayUI::begin(TunerProtocol* tuner) {
     m_tft->fillScreen(TFT_BLACK);
 
     lv_init();
-    ts.begin();
-    ts.setRotation(1);
+    Wire.begin(TOUCH_SDA, TOUCH_SCL);
 
     lv_disp_draw_buf_t draw_buf;
     static lv_color_t buf1[DISPLAY_WIDTH * 10];
@@ -198,11 +221,15 @@ void DisplayUI::setupTouch() {
 }
 
 void DisplayUI::readTouch(lv_indev_drv_t* drv, lv_indev_data_t* data) {
-    if (ts.touched()) {
-        TS_Point p = ts.getPoint();
-        data->state = LV_INDEV_STATE_PR;
-        data->point.x = map(p.x, 0, 4095, 0, DISPLAY_WIDTH);
-        data->point.y = map(p.y, 0, 4095, 0, DISPLAY_HEIGHT);
+    if (tsTouched()) {
+        uint16_t x, y;
+        if (ns2009Read(&x, &y)) {
+            data->state = LV_INDEV_STATE_PR;
+            data->point.x = map(x, 200, 3900, 0, DISPLAY_WIDTH);
+            data->point.y = map(y, 200, 3900, 0, DISPLAY_HEIGHT);
+        } else {
+            data->state = LV_INDEV_STATE_REL;
+        }
     } else {
         data->state = LV_INDEV_STATE_REL;
     }

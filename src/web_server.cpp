@@ -23,9 +23,17 @@ bool LdgWebServer::begin(TunerProtocol* tuner, command_handler_t cmdHandler,
     m_meterGetter = meterGetter;
     m_remoteTelemetryHandler = remoteTelemetryHandler;
 
-    m_server = new AsyncWebServer(HTTP_PORT);
+    m_server = new AsyncWebServer(443);
     m_events = new AsyncEventSource("/api/events");
     m_server->addHandler(m_events);
+
+    // HTTP→HTTPS redirect on port 80
+    AsyncWebServer* httpRedirect = new AsyncWebServer(80);
+    httpRedirect->onNotFound([](AsyncWebServerRequest* request) {
+        String url = "https://" + request->client()->localIP().toString() + request->url();
+        request->redirect(url.c_str());
+    });
+    httpRedirect->begin();
 
     m_server->on("/", HTTP_GET, [this](AsyncWebServerRequest* request) {
         if (!request->authenticate(WEB_AUTH_USERNAME, WEB_AUTH_PASSWORD)) {
@@ -193,7 +201,7 @@ void LdgWebServer::handleRoot(AsyncWebServerRequest* request) {
             ".btn-bypass{background:#f39c12}.btn-bypass:hover{background:#e67e22}"
             "#swr{color:#0f0}#swr.warn{color:#f39c12}#swr.bad{color:#e74c3c}"
             "</style></head><body>"
-            "<h1>LDG AG-1000ProII Control</h1>"
+            "<h1>LDG AT-1000ProII Control</h1>"
             "<div class='meter'>"
             "<div class='meter-box'><div>Forward Power</div><div class='meter-value' id='fwd'>0W</div></div>"
             "<div class='meter-box'><div>Reflected Power</div><div class='meter-value' id='ref'>0W</div></div>"
@@ -289,6 +297,14 @@ void LdgWebServer::handleConfig(AsyncWebServerRequest* request) {
         }
 
         DeviceConfig cfg = configManager.get();
+
+        if (doc["reset"] && doc["reset"] == true) {
+            configManager.reset();
+            request->send(200, "application/json", "{\"result\":\"ok\",\"restart\":true}");
+            delay(500);
+            ESP.restart();
+            return;
+        }
 
         if (doc["mqttBroker"]) strncpy(cfg.mqttBroker, doc["mqttBroker"], sizeof(cfg.mqttBroker) - 1);
         if (doc["mqttPort"]) cfg.mqttPort = doc["mqttPort"];

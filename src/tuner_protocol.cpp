@@ -1,4 +1,5 @@
 #include "tuner_protocol.h"
+#include "voltage_sensor.h"
 #include "config.h"
 #include <driver/uart.h>
 
@@ -290,8 +291,8 @@ void TunerProtocol::publishMeterData() {
     m_meterData.reflected_power_raw = ref_raw;
     m_meterData.band_indicator = band_raw;
 
-    m_meterData.forward_power_watts = calculatePower(fwd_raw, METER_PSU_VOLTAGE);
-    m_meterData.reflected_power_watts = calculatePower(ref_raw, METER_PSU_VOLTAGE);
+    m_meterData.forward_power_watts = calculatePower(fwd_raw, voltageSensor.readVoltage());
+    m_meterData.reflected_power_watts = calculatePower(ref_raw, voltageSensor.readVoltage());
 
     // Calculate SWR
     if (m_meterData.reflected_power_watts > 0.0) {

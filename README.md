@@ -1,6 +1,6 @@
 # LDG Tuner Remote Controller
 
-ESP32-based remote control interface for LDG AG-1000ProII / AG-600ProII auto-tuners. Web UI, MQTT, optional touchscreen display, and remote unit support.
+ESP32-based remote control interface for LDG AT-1000ProII / AT-600ProII auto-tuners. Web UI, MQTT, optional touchscreen display, and remote unit support.
 
 ## Features
 
