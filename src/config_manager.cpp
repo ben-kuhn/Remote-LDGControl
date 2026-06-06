@@ -69,26 +69,38 @@ void handleSave(httpsserver::HTTPRequest * req, httpsserver::HTTPResponse * res)
             res->setStatusCode(400);
             res->print("{\"error\":\"no ssid\"}");
         } else {
-            // Save configuration
+            // Save configuration — including WiFi creds so they survive a
+            // reboot (arduino-esp32 3.x no longer auto-persists WiFi.begin()
+            // credentials).
             const DeviceConfig& cfg = configManager.get();
             DeviceConfig newCfg = cfg;
             newCfg.configured = true;
-            if (webUser.length() > 0) strncpy(newCfg.webUsername, webUser.c_str(), sizeof(newCfg.webUsername) - 1);
-            if (webPass.length() > 0) strncpy(newCfg.webPassword, webPass.c_str(), sizeof(newCfg.webPassword) - 1);
+            strncpy(newCfg.wifiSSID,     ssid.c_str(),     sizeof(newCfg.wifiSSID)     - 1);
+            newCfg.wifiSSID[sizeof(newCfg.wifiSSID) - 1] = '\0';
+            strncpy(newCfg.wifiPassword, wifiPass.c_str(), sizeof(newCfg.wifiPassword) - 1);
+            newCfg.wifiPassword[sizeof(newCfg.wifiPassword) - 1] = '\0';
+            if (webUser.length() > 0) {
+                strncpy(newCfg.webUsername, webUser.c_str(), sizeof(newCfg.webUsername) - 1);
+                newCfg.webUsername[sizeof(newCfg.webUsername) - 1] = '\0';
+            }
+            if (webPass.length() > 0) {
+                strncpy(newCfg.webPassword, webPass.c_str(), sizeof(newCfg.webPassword) - 1);
+                newCfg.webPassword[sizeof(newCfg.webPassword) - 1] = '\0';
+            }
             configManager.update(newCfg);
-            
+
             res->print("{\"status\":\"ok\"}");
-            
+
             // Connect to WiFi
             delay(500);
             WiFi.mode(WIFI_AP_STA);
             WiFi.begin(ssid.c_str(), wifiPass.c_str());
-            
+
             uint32_t start = millis();
             while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
                 delay(100);
             }
-            
+
             if (WiFi.status() != WL_CONNECTED) {
                 WiFi.mode(WIFI_AP);
             }
@@ -111,11 +123,7 @@ void ConfigManager::startPortalServer() {
         return;
     }
 
-    // Bind to the softAP IP only — the runtime HTTPS server will later
-    // bind to the STA IP, and the lib has no SO_REUSEADDR, so we keep
-    // them on distinct addresses to avoid port conflict.
-    IPAddress apIP = WiFi.softAPIP();
-    httpsServer = new httpsserver::HTTPSServer(sslCert, 443, 4, (uint32_t)apIP);
+    httpsServer = new httpsserver::HTTPSServer(sslCert, 443, 4);
     httpsServer->registerNode(new httpsserver::ResourceNode("/",     "GET",  &handleRoot));
     httpsServer->registerNode(new httpsserver::ResourceNode("/scan", "GET",  &handleScan));
     httpsServer->registerNode(new httpsserver::ResourceNode("/save", "POST", &handleSave));
@@ -263,10 +271,13 @@ String ConfigManager::scanNetworksJSON() {
 }
 
 bool ConfigManager::setupWiFi() {
-    // Try to connect with saved credentials
-    String ssid = WiFi.SSID();
-    if (!ssid.isEmpty()) {
-        Serial.printf("Attempting to connect to saved network: %s\n", ssid.c_str());
+    // Try saved credentials from NVS. WiFi.SSID() can't be used here — under
+    // arduino-esp32 3.x it returns the *currently connected* AP, which is
+    // always empty at boot. We own STA creds via DeviceConfig.
+    if (m_config.configured && m_config.wifiSSID[0] != '\0') {
+        Serial.printf("Attempting to connect to saved network: %s\n", m_config.wifiSSID);
+        WiFi.mode(WIFI_STA);
+        WiFi.begin(m_config.wifiSSID, m_config.wifiPassword);
         uint32_t start = millis();
         while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
             delay(100);
@@ -302,15 +313,23 @@ bool ConfigManager::setupWiFi() {
 
         if (WiFi.status() == WL_CONNECTED) {
             Serial.printf("\nConnected: %s\n", WiFi.localIP().toString().c_str());
-            // Stop the DNS hijack (it only made sense for the AP captive
-            // flow) but leave the portal HTTPSServer running on the AP IP.
-            // The runtime HTTPS server binds to the STA IP only, so there is
-            // no port conflict, and the portal stays available on the AP for
-            // reconfiguration if needed.
             if (dnsServer) {
                 delete dnsServer;
                 dnsServer = nullptr;
             }
+            // Let the /save handler's TLS connection finish so its slot is
+            // free before we stop the server (the lib's stop() loops until
+            // all connections close).
+            delay(3000);
+            stopPortalServer();
+#ifndef WITH_DISPLAY
+            // Drop the softAP — only display units need to keep the AP up to
+            // serve the remote-unit link. Reconfiguration after this point
+            // happens via a reset (POST /api/config {"reset":true} or NVS
+            // wipe) which boots back into the portal flow.
+            WiFi.softAPdisconnect(true);
+            WiFi.mode(WIFI_STA);
+#endif
             return true;
         }
 
@@ -340,6 +359,8 @@ bool ConfigManager::isConfigured() const {
 }
 
 void ConfigManager::loadDefaults() {
+    m_config.wifiSSID[0] = '\0';
+    m_config.wifiPassword[0] = '\0';
     strncpy(m_config.mqttBroker, MQTT_BROKER, sizeof(m_config.mqttBroker) - 1);
     strncpy(m_config.mqttUsername, MQTT_USERNAME, sizeof(m_config.mqttUsername) - 1);
     strncpy(m_config.mqttPassword, MQTT_PASSWORD, sizeof(m_config.mqttPassword) - 1);
@@ -354,6 +375,8 @@ void ConfigManager::loadDefaults() {
 bool ConfigManager::save() {
     m_prefs.begin("ldg-config", false);
 
+    m_prefs.putString("wifiSSID", m_config.wifiSSID);
+    m_prefs.putString("wifiPassword", m_config.wifiPassword);
     m_prefs.putString("mqttBroker", m_config.mqttBroker);
     m_prefs.putString("mqttUsername", m_config.mqttUsername);
     m_prefs.putString("mqttPassword", m_config.mqttPassword);
@@ -382,6 +405,8 @@ bool ConfigManager::load() {
         return false;
     }
 
+    strncpy(m_config.wifiSSID,     m_prefs.getString("wifiSSID", "").c_str(),     sizeof(m_config.wifiSSID)     - 1);
+    strncpy(m_config.wifiPassword, m_prefs.getString("wifiPassword", "").c_str(), sizeof(m_config.wifiPassword) - 1);
     strncpy(m_config.mqttBroker, mqttBroker.c_str(), sizeof(m_config.mqttBroker) - 1);
     strncpy(m_config.mqttUsername, m_prefs.getString("mqttUsername", "").c_str(), sizeof(m_config.mqttUsername) - 1);
     strncpy(m_config.mqttPassword, m_prefs.getString("mqttPassword", "").c_str(), sizeof(m_config.mqttPassword) - 1);

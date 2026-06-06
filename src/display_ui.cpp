@@ -61,9 +61,13 @@ bool DisplayUI::begin(TunerProtocol* tuner) {
     Wire.begin(TOUCH_SDA, TOUCH_SCL);
 
     lv_disp_draw_buf_t draw_buf;
-    static lv_color_t buf1[DISPLAY_WIDTH * 10];
-    static lv_color_t buf2[DISPLAY_WIDTH * 10];
-    lv_disp_draw_buf_init(&draw_buf, buf1, buf2, DISPLAY_WIDTH * 10);
+    // 5-line draw buffers (~4.8 KB each). LVGL recommends ~1/10 of the
+    // screen height as the minimum; halving from 10 lines keeps perf
+    // reasonable while saving ~9.6 KB of dram0.bss — the difference
+    // between the display variant linking or not.
+    static lv_color_t buf1[DISPLAY_WIDTH * 5];
+    static lv_color_t buf2[DISPLAY_WIDTH * 5];
+    lv_disp_draw_buf_init(&draw_buf, buf1, buf2, DISPLAY_WIDTH * 5);
 
     lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);

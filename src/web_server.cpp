@@ -420,13 +420,12 @@ bool LdgWebServer::begin(TunerProtocol* tuner, command_handler_t cmdHandler,
         return false;
     }
 
-    // Bind to the STA IP only — the captive portal HTTPSServer keeps
-    // listening on the AP IP at 0.0.0.0:443 isn't workable (no SO_REUSEADDR
-    // in this lib), so we pin the runtime to the STA interface and let the
-    // portal keep its AP-side listener.
-    IPAddress staIP = WiFi.localIP();
-    in_addr_t bindAddr = (uint32_t)staIP;
-    m_server = new hsv::HTTPSServer(m_sslCert, 443, 4, bindAddr);
+    // The captive portal HTTPSServer is torn down in setupWiFi() after STA
+    // join (with a 3s wait so its last connection drains), so port 443 is
+    // free here. Bind to 0.0.0.0 so the runtime is reachable on every
+    // interface — including the softAP on display units where the remote
+    // unit needs to talk to it.
+    m_server = new hsv::HTTPSServer(m_sslCert, 443, 4);
 
     m_server->registerNode(new hsv::ResourceNode("/",                   "GET",  &h_root));
     m_server->registerNode(new hsv::ResourceNode("/api/status",         "GET",  &h_status));
@@ -443,11 +442,10 @@ bool LdgWebServer::begin(TunerProtocol* tuner, command_handler_t cmdHandler,
 
     m_server->start();
     if (!m_server->isRunning()) {
-        Serial.printf("ERROR: runtime HTTPS server failed to bind to %s:443\n",
-                      staIP.toString().c_str());
+        Serial.println("ERROR: runtime HTTPS server failed to bind :443");
         return false;
     }
-    Serial.printf("Runtime HTTPS server started on %s:443\n", staIP.toString().c_str());
+    Serial.println("Runtime HTTPS server started on :443");
     return true;
 }
 

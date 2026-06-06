@@ -6,6 +6,8 @@
 #include "config.h"
 
 struct DeviceConfig {
+    char wifiSSID[33];     // 802.11 SSID max 32 bytes + NUL
+    char wifiPassword[65]; // WPA2-PSK max 63 bytes + NUL (plus room for paste)
     char mqttBroker[64];
     char mqttUsername[32];
     char mqttPassword[64];
