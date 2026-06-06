@@ -1,4 +1,5 @@
 #include "security.h"
+#include "config_manager.h"
 #include <cstring>
 
 // Static member initialization
@@ -154,7 +155,8 @@ void Security::begin() {
 }
 
 bool Security::verifyAuth(const String& username, const String& password) {
-    return (username == WEB_AUTH_USERNAME && password == WEB_AUTH_PASSWORD);
+    const DeviceConfig& cfg = configManager.get();
+    return (username == cfg.webUsername && password == cfg.webPassword);
 }
 
 String Security::generateToken() {

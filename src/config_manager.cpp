@@ -100,63 +100,27 @@ void handleSave(httpsserver::HTTPRequest * req, httpsserver::HTTPResponse * res)
 }
 
 void ConfigManager::startPortalServer() {
-    Serial.println("startPortalServer: Starting...");
-    
-    // Initialize certificate
     if (!portalCert_init()) {
         Serial.println("ERROR: Failed to init portal certificate");
         return;
     }
-    Serial.println("startPortalServer: Certificate initialized");
 
-    // Create SSL certificate from stored data
-    String certStr = portalCert_getCert();
-    String keyStr = portalCert_getKey();
-    Serial.printf("startPortalServer: Cert length: %d, Key length: %d\n", certStr.length(), keyStr.length());
-    
-    // Decode base64 to DER
-    size_t certDerLen = 0, keyDerLen = 0;
-    mbedtls_base64_decode(NULL, 0, &certDerLen, (const unsigned char*)certStr.c_str(), certStr.length());
-    mbedtls_base64_decode(NULL, 0, &keyDerLen, (const unsigned char*)keyStr.c_str(), keyStr.length());
-    Serial.printf("startPortalServer: DER cert length: %d, key length: %d\n", certDerLen, keyDerLen);
-    
-    unsigned char* certDer = (unsigned char*)malloc(certDerLen);
-    unsigned char* keyDer = (unsigned char*)malloc(keyDerLen);
-    
-    if (!certDer || !keyDer) {
-        Serial.println("ERROR: Failed to allocate memory for cert/key");
-        free(certDer);
-        free(keyDer);
+    sslCert = portalCert_newSSLCert();
+    if (!sslCert) {
+        Serial.println("ERROR: Failed to build SSLCert for portal");
         return;
     }
-    
-    mbedtls_base64_decode(certDer, certDerLen, &certDerLen, (const unsigned char*)certStr.c_str(), certStr.length());
-    mbedtls_base64_decode(keyDer, keyDerLen, &keyDerLen, (const unsigned char*)keyStr.c_str(), keyStr.length());
-    Serial.println("startPortalServer: Base64 decoded");
-    
-    // Create SSLCert
-    sslCert = new httpsserver::SSLCert(certDer, certDerLen, keyDer, keyDerLen);
-    Serial.println("startPortalServer: SSLCert created");
-    
-    // Create HTTPS server
-    httpsServer = new httpsserver::HTTPSServer(sslCert, 443, 4);
-    Serial.println("startPortalServer: HTTPSServer created");
-    
-    // Create resource nodes
-    httpsserver::ResourceNode* root = new httpsserver::ResourceNode("/", "GET", &handleRoot);
-    httpsserver::ResourceNode* scan = new httpsserver::ResourceNode("/scan", "GET", &handleScan);
-    httpsserver::ResourceNode* save = new httpsserver::ResourceNode("/save", "POST", &handleSave);
-    Serial.println("startPortalServer: Resource nodes created");
-    
-    // Register nodes
-    httpsServer->registerNode(root);
-    httpsServer->registerNode(scan);
-    httpsServer->registerNode(save);
-    Serial.println("startPortalServer: Nodes registered");
-    
-    // Start server
+
+    // Bind to the softAP IP only — the runtime HTTPS server will later
+    // bind to the STA IP, and the lib has no SO_REUSEADDR, so we keep
+    // them on distinct addresses to avoid port conflict.
+    IPAddress apIP = WiFi.softAPIP();
+    httpsServer = new httpsserver::HTTPSServer(sslCert, 443, 4, (uint32_t)apIP);
+    httpsServer->registerNode(new httpsserver::ResourceNode("/",     "GET",  &handleRoot));
+    httpsServer->registerNode(new httpsserver::ResourceNode("/scan", "GET",  &handleScan));
+    httpsServer->registerNode(new httpsserver::ResourceNode("/save", "POST", &handleSave));
     httpsServer->start();
-    Serial.println("startPortalServer: Server started");
+    Serial.println("Portal HTTPS server started on :443");
 }
 
 void ConfigManager::stopPortalServer() {
@@ -338,7 +302,11 @@ bool ConfigManager::setupWiFi() {
 
         if (WiFi.status() == WL_CONNECTED) {
             Serial.printf("\nConnected: %s\n", WiFi.localIP().toString().c_str());
-            stopPortalServer();
+            // Stop the DNS hijack (it only made sense for the AP captive
+            // flow) but leave the portal HTTPSServer running on the AP IP.
+            // The runtime HTTPS server binds to the STA IP only, so there is
+            // no port conflict, and the portal stays available on the AP for
+            // reconfiguration if needed.
             if (dnsServer) {
                 delete dnsServer;
                 dnsServer = nullptr;

@@ -7,6 +7,7 @@
 #include <mbedtls/bignum.h>
 #include <mbedtls/base64.h>
 #include <Preferences.h>
+#include <SSLCert.hpp>
 
 static String s_cert;
 static String s_key;
@@ -160,3 +161,37 @@ bool portalCert_init() {
 
 const char* portalCert_getCert() { return s_cert.c_str(); }
 const char* portalCert_getKey() { return s_key.c_str(); }
+
+httpsserver::SSLCert* portalCert_newSSLCert() {
+    if (s_cert.length() == 0 || s_key.length() == 0) {
+        return nullptr;
+    }
+
+    size_t certDerLen = 0, keyDerLen = 0;
+    mbedtls_base64_decode(nullptr, 0, &certDerLen,
+                          (const unsigned char*)s_cert.c_str(), s_cert.length());
+    mbedtls_base64_decode(nullptr, 0, &keyDerLen,
+                          (const unsigned char*)s_key.c_str(), s_key.length());
+    if (certDerLen == 0 || keyDerLen == 0) {
+        return nullptr;
+    }
+
+    unsigned char* certDer = (unsigned char*)malloc(certDerLen);
+    unsigned char* keyDer = (unsigned char*)malloc(keyDerLen);
+    if (!certDer || !keyDer) {
+        free(certDer);
+        free(keyDer);
+        return nullptr;
+    }
+
+    if (mbedtls_base64_decode(certDer, certDerLen, &certDerLen,
+                              (const unsigned char*)s_cert.c_str(), s_cert.length()) != 0 ||
+        mbedtls_base64_decode(keyDer, keyDerLen, &keyDerLen,
+                              (const unsigned char*)s_key.c_str(), s_key.length()) != 0) {
+        free(certDer);
+        free(keyDer);
+        return nullptr;
+    }
+
+    return new httpsserver::SSLCert(certDer, certDerLen, keyDer, keyDerLen);
+}

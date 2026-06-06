@@ -2,9 +2,10 @@
 #define WEB_SERVER_H
 
 #include <Arduino.h>
-#include <ESPAsyncWebServer.h>
 #include "tuner_protocol.h"
 #include "config.h"
+
+namespace httpsserver { class HTTPSServer; class SSLCert; }
 
 typedef bool (*command_handler_t)(uint8_t cmd);
 typedef const tuner_meter_t* (*meter_getter_t)();
@@ -29,21 +30,20 @@ public:
     // SSE: push command event to remote unit clients
     void pushCommandEvent(uint8_t cmd);
 
+    // Accessors for the static handler functions (which receive a raw
+    // HTTPRequest/HTTPResponse and need to reach back into instance state).
+    TunerProtocol* getTuner() { return m_tuner; }
+    command_handler_t getCmdHandler() { return m_cmdHandler; }
+    meter_getter_t getMeterGetter() { return m_meterGetter; }
+    remote_telemetry_handler_t getRemoteTelemetryHandler() { return m_remoteTelemetryHandler; }
+
 private:
-    AsyncWebServer* m_server;
+    httpsserver::HTTPSServer* m_server;
+    httpsserver::SSLCert* m_sslCert;
     TunerProtocol* m_tuner;
     command_handler_t m_cmdHandler;
     meter_getter_t m_meterGetter;
     remote_telemetry_handler_t m_remoteTelemetryHandler;
-
-    void handleRoot(AsyncWebServerRequest* request);
-    void handleStatus(AsyncWebServerRequest* request);
-    void handleConfig(AsyncWebServerRequest* request);
-    void handleCommand(AsyncWebServerRequest* request, uint8_t cmd);
-    void handleNotFound(AsyncWebServerRequest* request);
-    void handleRemoteTelemetry(AsyncWebServerRequest* request);
-
-    AsyncEventSource* m_events;
     uint32_t m_lastMeterUpdate;
 };
 

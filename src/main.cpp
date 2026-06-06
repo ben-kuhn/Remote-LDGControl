@@ -9,6 +9,7 @@
 #include "tuner_protocol.h"
 #include "mqtt_handler.h"
 #include "web_server.h"
+#include "portal_cert.h"
 
 #ifdef WITH_DISPLAY
 #include "display_ui.h"
@@ -36,10 +37,25 @@ static bool remoteUnitConnected = false;
 static bool usingRemoteTuner = false;
 static tuner_meter_t s_remoteMeter;
 
-// SSE client for remote unit
-static WiFiClient s_sseClient;
+#ifdef REMOTE_UNIT
+// SSE client for remote unit.
+//
+// Threat model for the display↔remote link:
+//   - The connection is TLS-encrypted (WiFiClientSecure).
+//   - The display unit's cert is self-signed and unique-per-device; the
+//     remote unit accepts it without verification via setInsecure(). This
+//     protects against passive sniffing on the shared WiFi but not active
+//     MITM (an attacker on the same AP who can intercept TCP could swap
+//     in their own cert and watch the Basic Auth password go by).
+//   - Authentication of *requests* is HTTP Basic Auth using the user-
+//     configured webUsername/webPassword (set during portal setup).
+//   - This is intentional for a "mostly-private-network" deployment with
+//     no user-managed PKI. Don't expose the link across an untrusted hop.
+#include <WiFiClientSecure.h>
+static WiFiClientSecure s_sseClient;
 static bool s_sseConnected = false;
 static uint32_t s_lastSseReconnect = 0;
+#endif
 
 // ============================================================
 // Meter Getter (for web server)
@@ -135,6 +151,7 @@ void onMeterUpdate(const tuner_meter_t* meter) {
 // ============================================================
 // SSE Client (Remote Unit)
 // ============================================================
+#ifdef REMOTE_UNIT
 
 void connectSSEClient() {
     if (s_sseConnected || !wifiConnected) return;
@@ -153,9 +170,10 @@ void connectSSEClient() {
         displayIP = IPAddress(192, 168, 4, 1); // Fallback to AP IP
     }
 
-    Serial.printf("Connecting to display unit SSE at %s:%d...\n", displayIP.toString().c_str(), HTTP_PORT);
+    Serial.printf("Connecting to display unit SSE at %s:%d...\n", displayIP.toString().c_str(), HTTPS_PORT);
+    s_sseClient.setInsecure();  // see threat-model note at the top of the file
 
-    if (s_sseClient.connect(displayIP, HTTP_PORT)) {
+    if (s_sseClient.connect(displayIP, HTTPS_PORT)) {
         // Build auth header
         String auth = cfg.webUsername;
         auth += ":";
@@ -233,7 +251,8 @@ void postTelemetry(const tuner_meter_t* meter) {
 
     const DeviceConfig& cfg = configManager.get();
 
-    WiFiClient client;
+    WiFiClientSecure client;
+    client.setInsecure();  // see threat-model note at the top of the file
     IPAddress displayIP;
     if (WiFi.hostByName("ldg-tuner.local", displayIP)) {
         // Found via mDNS
@@ -241,7 +260,7 @@ void postTelemetry(const tuner_meter_t* meter) {
         displayIP = IPAddress(192, 168, 4, 1);
     }
 
-    if (!client.connect(displayIP, HTTP_PORT)) return;
+    if (!client.connect(displayIP, HTTPS_PORT)) return;
 
     JsonDocument doc;
     doc["fwd_power"] = meter->forward_power_watts;
@@ -284,6 +303,8 @@ void postTelemetry(const tuner_meter_t* meter) {
     delay(10);
     client.stop();
 }
+
+#endif // REMOTE_UNIT
 
 // ============================================================
 // Command Execution (for web/MQTT)
@@ -343,6 +364,15 @@ void setup() {
     configManager.begin();
 
     setupFS();
+
+    // Ensure the device's self-signed cert exists before any HTTPS server
+    // starts. Both the captive portal and the runtime web server use it; the
+    // portal would normally trigger this lazily, but a device with saved STA
+    // credentials skips the portal entirely.
+    if (!portalCert_init()) {
+        Serial.println("ERROR: portal cert init failed; HTTPS will not work");
+    }
+
     setupWiFi();
 
     Serial.println("Initializing tuner interface...");
@@ -355,7 +385,8 @@ void setup() {
     const DeviceConfig& cfg = configManager.get();
 
     if (wifiConnected) {
-        WiFiClient mqttClient;
+        // mqttClient must outlive setup() — PubSubClient stores a reference.
+        static WiFiClient mqttClient;
         mqtt.begin(mqttClient, executeCommand);
 
 #ifndef REMOTE_UNIT
@@ -363,7 +394,10 @@ void setup() {
         mqtt.subscribeRemoteStatus(onRemoteStatus);
 #endif
 
-        mqtt.connect();
+        // mqtt.connect() blocks on TCP connect to the broker. Don't call it
+        // here — main loop()'s mqtt.loop() will reconnect on its own 5 s
+        // backoff, and an unreachable broker would otherwise hang setup()
+        // long enough to trip the IDLE-task watchdog.
     }
 
 #ifdef REMOTE_UNIT
