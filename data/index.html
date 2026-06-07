@@ -424,11 +424,13 @@
         function drawMeter() {
             const w = canvas.width;
             const h = canvas.height;
-            const pad = 60;
+            const pad = 40;
 
+            // Pivots sit at the bottom corners (cy, cx±radius). Arc spans
+            // the upper half of the canvas.
             const cx = w / 2;
             const cy = h - pad;
-            const radius = w - pad * 2;
+            const radius = (w / 2) - pad;
 
             ctx.clearRect(0, 0, w, h);
 
@@ -439,50 +441,64 @@
             // Draw SWR curves first (behind needles)
             drawSWRCurves(cx, cy, radius);
 
-            // Draw scale arc (180 degrees: left to right, passing through top)
+            // Scale arc — upper semicircle from LEFT (φ=π) through TOP
+            // (φ=3π/2) to RIGHT (φ=2π).
             ctx.strokeStyle = '#555';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(cx, cy, radius, Math.PI, 2 * Math.PI);
             ctx.stroke();
 
-            // Tick marks and labels along the arc
-            const numTicks = 11;
-            for (let i = 0; i <= numTicks; i++) {
-                const angle = Math.PI + Math.PI * (i / numTicks);
-                const cos = Math.cos(angle);
-                const sin = Math.sin(angle);
-
-                const tickLen = (i % 5 === 0) ? 16 : 8;
-                const x1 = cx + cos * (radius + 4);
-                const y1 = cy + sin * (radius + 4);
-                const x2 = cx + cos * (radius + 4 + tickLen);
-                const y2 = cy + sin * (radius + 4 + tickLen);
-
-                ctx.strokeStyle = (i % 5 === 0) ? '#ffffff' : '#777';
-                ctx.lineWidth = (i % 5 === 0) ? 2 : 1;
-                ctx.beginPath();
-                ctx.moveTo(x1, y1);
-                ctx.lineTo(x2, y2);
-                ctx.stroke();
-
-                if (i % 5 === 0) {
-                    const val = Math.round((i / numTicks) * meterState.maxPower);
-                    const lx = cx + cos * (radius - 22);
-                    const ly = cy + sin * (radius - 22);
-                    ctx.fillStyle = '#ccc';
-                    ctx.font = 'bold 26px -apple-system, sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(val.toString(), lx, ly);
+            // Two scales meet at the top: forward sweeps the LEFT half
+            // (φ from π to 3π/2 = 0% to 100%), reflected the RIGHT half
+            // (φ from 2π to 3π/2 = 0% to 100%). Ticks every 10%, labels
+            // every 25%.
+            // 8 ticks per half-arc (every 12.5%), labels at 0/25/50/75/100%.
+            // The 100% label is centered above the apex once so the two
+            // colors don't fight for the same spot.
+            function drawScale(phiZero, phiFull, color) {
+                const N = 8;
+                for (let i = 0; i <= N; i++) {
+                    const f = i / N;
+                    const phi = phiZero + (phiFull - phiZero) * f;
+                    const cos = Math.cos(phi);
+                    const sin = Math.sin(phi);
+                    const major = (i % 2 === 0);
+                    const tickLen = major ? 14 : 7;
+                    ctx.strokeStyle = major ? color : '#666';
+                    ctx.lineWidth = major ? 2 : 1;
+                    ctx.beginPath();
+                    ctx.moveTo(cx + cos * (radius + 2), cy + sin * (radius + 2));
+                    ctx.lineTo(cx + cos * (radius + 2 + tickLen), cy + sin * (radius + 2 + tickLen));
+                    ctx.stroke();
+                    // Skip the 100% label here; we'll draw a single shared "100" above the apex
+                    if (major && i < N) {
+                        const val = Math.round(f * meterState.maxPower);
+                        const lx = cx + cos * (radius - 20);
+                        const ly = cy + sin * (radius - 20);
+                        ctx.fillStyle = color;
+                        ctx.font = 'bold 18px -apple-system, sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(val.toString(), lx, ly);
+                    }
                 }
             }
+            drawScale(Math.PI,     1.5 * Math.PI, '#22c55e');  // forward, left-half
+            drawScale(2 * Math.PI, 1.5 * Math.PI, '#ef4444');  // reflected, right-half
 
-            // Scale label
-            ctx.fillStyle = '#666';
-            ctx.font = '20px -apple-system, sans-serif';
+            // Shared max-scale label above the apex
+            ctx.fillStyle = '#ccc';
+            ctx.font = 'bold 18px -apple-system, sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('WATTS', cx, cy - radius - 35);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(meterState.maxPower.toString(), cx, cy - radius - 14);
+
+            // "WATTS" caption above the max-scale label
+            ctx.fillStyle = '#888';
+            ctx.font = '12px -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('WATTS', cx, cy - radius - 30);
 
             // Pivot points
             const fwdPx = cx + radius;  // bottom-right
@@ -501,38 +517,33 @@
             ctx.arc(refPx, refPy, 10, 0, 2 * Math.PI);
             ctx.fill();
 
-            // Calculate needle angles
-            // Forward: zero = vertical up (1.5*PI), full = horizontal right (2*PI)
+            // Needle tips on the SCALE ARC directly.
+            //   Forward: tip at φ = π + fwdFrac·(π/2)   (LEFT → TOP)
+            //   Reflected: tip at φ = 2π − refFrac·(π/2) (RIGHT → TOP)
             const fwdFrac = Math.min(meterState.fwdPower / meterState.maxPower, 1);
-            const fwdAngle = 1.5 * Math.PI + fwdFrac * (Math.PI / 2);
-
-            // Reflected: zero = vertical up (1.5*PI), full = horizontal left (PI)
             const refFrac = Math.min(meterState.refPower / meterState.maxPower, 1);
-            const refAngle = 1.5 * Math.PI - refFrac * (Math.PI / 2);
+            const fwdTipPhi = Math.PI + fwdFrac * (Math.PI / 2);
+            const refTipPhi = 2 * Math.PI - refFrac * (Math.PI / 2);
+            const fwdTipX = cx + radius * Math.cos(fwdTipPhi);
+            const fwdTipY = cy + radius * Math.sin(fwdTipPhi);
+            const refTipX = cx + radius * Math.cos(refTipPhi);
+            const refTipY = cy + radius * Math.sin(refTipPhi);
 
             // Draw forward needle (green)
-            const fwdLen = radius - 15;
-            const fwdNx = fwdPx + Math.cos(fwdAngle) * fwdLen;
-            const fwdNy = fwdPy + Math.sin(fwdAngle) * fwdLen;
-
             ctx.strokeStyle = '#22c55e';
             ctx.lineWidth = 4;
             ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(fwdPx, fwdPy);
-            ctx.lineTo(fwdNx, fwdNy);
+            ctx.lineTo(fwdTipX, fwdTipY);
             ctx.stroke();
 
             // Draw reflected needle (red)
-            const refLen = radius - 15;
-            const refNx = refPx + Math.cos(refAngle) * refLen;
-            const refNy = refPy + Math.sin(refAngle) * refLen;
-
             ctx.strokeStyle = '#ef4444';
             ctx.lineWidth = 4;
             ctx.beginPath();
             ctx.moveTo(refPx, refPy);
-            ctx.lineTo(refNx, refNy);
+            ctx.lineTo(refTipX, refTipY);
             ctx.stroke();
 
             // Pivot center dots (on top of needles)
@@ -559,68 +570,57 @@
 
         function drawSWRCurves(cx, cy, radius) {
             const swrValues = [1.5, 2, 3, 5, 10];
-            const colors = ['#22c55e', '#84cc16', '#eab308', '#f97316', '#ef4444'];
+            const colors = ['#84cc16', '#eab308', '#f97316', '#ef4444', '#a855f7'];
+            const fwdPx = cx + radius, fwdPy = cy;
+            const refPx = cx - radius, refPy = cy;
 
+            // For each SWR ratio: refPower/fwdPower = γ². Sweep fwdFrac and
+            // plot the locus of needle intersections.
             for (let si = 0; si < swrValues.length; si++) {
                 const swr = swrValues[si];
                 const gamma = (swr - 1) / (swr + 1);
                 const gammaSq = gamma * gamma;
 
                 ctx.strokeStyle = colors[si];
-                ctx.lineWidth = 1;
-                ctx.globalAlpha = 0.35;
+                ctx.lineWidth = 1.5;
+                ctx.globalAlpha = 0.5;
                 ctx.beginPath();
 
                 let first = true;
+                let lastPt = null;
                 for (let i = 1; i <= 100; i++) {
                     const fwdFrac = i / 100;
                     const refFrac = fwdFrac * gammaSq;
                     if (refFrac > 1) continue;
 
-                    // Forward needle: pivots bottom-right, sweeps from up to right
-                    const fwdAngle = 1.5 * Math.PI + fwdFrac * (Math.PI / 2);
-                    const fwdLen = radius - 15;
-                    const fwdPx = cx + radius;
-                    const fwdPy = cy;
-                    const fwdNx = fwdPx + Math.cos(fwdAngle) * fwdLen;
-                    const fwdNy = fwdPy + Math.sin(fwdAngle) * fwdLen;
+                    const fwdPhi = Math.PI + fwdFrac * (Math.PI / 2);
+                    const refPhi = 2 * Math.PI - refFrac * (Math.PI / 2);
+                    const fwdTx = cx + radius * Math.cos(fwdPhi);
+                    const fwdTy = cy + radius * Math.sin(fwdPhi);
+                    const refTx = cx + radius * Math.cos(refPhi);
+                    const refTy = cy + radius * Math.sin(refPhi);
 
-                    // Reflected needle: pivots bottom-left, sweeps from up to left
-                    const refAngle = 1.5 * Math.PI - refFrac * (Math.PI / 2);
-                    const refLen = radius - 15;
-                    const refPx = cx - radius;
-                    const refPy = cy;
-                    const refNx = refPx + Math.cos(refAngle) * refLen;
-                    const refNy = refPy + Math.sin(refAngle) * refLen;
-
-                    const ix = lineIntersect(fwdPx, fwdPy, fwdNx, fwdNy, refPx, refPy, refNx, refNy);
+                    const ix = lineIntersect(fwdPx, fwdPy, fwdTx, fwdTy,
+                                              refPx, refPy, refTx, refTy);
                     if (ix) {
                         if (first) { ctx.moveTo(ix.x, ix.y); first = false; }
                         else { ctx.lineTo(ix.x, ix.y); }
+                        lastPt = ix;
                     }
                 }
                 ctx.stroke();
                 ctx.globalAlpha = 1;
 
-                // Label on curve
-                if (si < swrValues.length - 1) {
-                    const labelFrac = 0.4;
-                    const labelRefFrac = labelFrac * gammaSq;
-                    if (labelRefFrac <= 1) {
-                        const la = 1.5 * Math.PI + labelFrac * (Math.PI / 2);
-                        const lra = 1.5 * Math.PI - labelRefFrac * (Math.PI / 2);
-                        const lp1 = { x: cx + radius + Math.cos(la) * (radius - 15), y: cy + Math.sin(la) * (radius - 15) };
-                        const lp2 = { x: cx - radius + Math.cos(lra) * (radius - 15), y: cy + Math.sin(lra) * (radius - 15) };
-                        const li = lineIntersect(cx + radius, cy, lp1.x, lp1.y, cx - radius, cy, lp2.x, lp2.y);
-                        if (li) {
-                            ctx.fillStyle = colors[si];
-                            ctx.font = '18px -apple-system, sans-serif';
-                            ctx.textAlign = 'center';
-                            ctx.globalAlpha = 0.5;
-                            ctx.fillText(swr + ':1', li.x, li.y - 12);
-                            ctx.globalAlpha = 1;
-                        }
-                    }
+                // Label the curve at its low-power end (further from the
+                // pivot apex, more readable).
+                if (lastPt) {
+                    ctx.fillStyle = colors[si];
+                    ctx.font = '14px -apple-system, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.globalAlpha = 0.85;
+                    ctx.fillText(swr + ':1', lastPt.x, lastPt.y - 10);
+                    ctx.globalAlpha = 1;
                 }
             }
         }

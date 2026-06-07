@@ -249,111 +249,165 @@ void DisplayUI::drawCrossNeedle(lv_event_t* e) {
 
     int w = lv_obj_get_width(obj);
     int h = lv_obj_get_height(obj);
-    lv_coord_t x = lv_obj_get_x(obj);
-    lv_coord_t y = lv_obj_get_y(obj);
 
-    // Meter face center and radius
-    int cx = w / 2;
-    int cy = h - 25; // pivot line near bottom
-    int radius = w / 2 - 20;
+    // Geometry — mirrors data/index.html drawMeter(). Pivots sit at the
+    // bottom corners; arc spans the upper half. Forward pivot is bottom-
+    // RIGHT, reflected is bottom-LEFT (matches CLAUDE.md convention).
+    const int pad   = 20;
+    const int cx    = w / 2;
+    const int cy    = h - pad;
+    const int radius = w / 2 - pad;
+    const float PI_F = 3.14159265f;
 
-    // Draw scale arc (180 degrees, left to right)
+    // Pivot positions
+    const int fwdPx = cx + radius;  // bottom-right
+    const int fwdPy = cy;
+    const int refPx = cx - radius;  // bottom-left
+    const int refPy = cy;
+
+    auto tipOnArc = [&](float phi, int& tx, int& ty) {
+        tx = cx + (int)(radius * cosf(phi));
+        ty = cy + (int)(radius * sinf(phi));  // screen coords; sin direct
+    };
+
+    // ----- Scale arc -----
     lv_draw_arc_dsc_t arc_dsc;
     lv_draw_arc_dsc_init(&arc_dsc);
-    arc_dsc.color = lv_color_hex(0x444444);
+    arc_dsc.color = lv_color_hex(0x555555);
     arc_dsc.width = 2;
-    lv_point_t arc_center = {(lv_coord_t)cx, (lv_coord_t)(cy - 10)};
+    lv_point_t arc_center = {(lv_coord_t)cx, (lv_coord_t)cy};
     lv_draw_arc(draw_ctx, &arc_dsc, &arc_center, radius, 180, 360);
 
-    // Draw tick marks
-    int numTicks = 11;
-    for (int i = 0; i <= numTicks; i++) {
-        float angle = 3.14159f * (1.0f - (float)i / numTicks);
-        float cos_a = cosf(angle);
-        float sin_a = sinf(angle);
-
-        int tickLen = (i % 5 == 0) ? 12 : 6;
-        lv_point_t p1 = {(lv_coord_t)(cx + (int)(cos_a * (radius + 5))),
-                         (lv_coord_t)((cy - 10) - (int)(sin_a * (radius + 5)))};
-        lv_point_t p2 = {(lv_coord_t)(cx + (int)(cos_a * (radius + 5 + tickLen))),
-                         (lv_coord_t)((cy - 10) - (int)(sin_a * (radius + 5 + tickLen)))};
-
-        lv_draw_line_dsc_t line_dsc;
-        lv_draw_line_dsc_init(&line_dsc);
-        line_dsc.color = (i % 5 == 0) ? lv_color_hex(0xffffff) : lv_color_hex(0x888888);
-        line_dsc.width = (i % 5 == 0) ? 2 : 1;
-        lv_draw_line(draw_ctx, &line_dsc, &p1, &p2);
-
-        // Labels on major ticks
-        if (i % 5 == 0) {
-            int val = (int)((float)i / numTicks * m_maxPower);
-            char buf[8];
-            snprintf(buf, sizeof(buf), "%d", val);
-
-            lv_draw_label_dsc_t label_dsc;
-            lv_draw_label_dsc_init(&label_dsc);
-            label_dsc.color = lv_color_hex(0xcccccc);
-            label_dsc.font = &lv_font_montserrat_14;
-            label_dsc.align = LV_TEXT_ALIGN_CENTER;
-
-            int lx = cx + (int)(cos_a * (radius - 20));
-            int ly = (cy - 10) - (int)(sin_a * (radius - 20));
-            lv_area_t label_area;
-            label_area.x1 = (lv_coord_t)(lx - 15);
-            label_area.y1 = (lv_coord_t)(ly - 8);
-            label_area.x2 = (lv_coord_t)(lx + 15);
-            label_area.y2 = (lv_coord_t)(ly + 8);
-            lv_draw_label(draw_ctx, &label_dsc, &label_area, buf, NULL);
+    // ----- SWR curves (drawn behind needles) -----
+    static const float swrValues[]   = { 1.5f, 2.0f, 3.0f, 5.0f, 10.0f };
+    static const uint32_t swrColors[] = { 0x84cc16, 0xeab308, 0xf97316, 0xef4444, 0xa855f7 };
+    const int swrCount = sizeof(swrValues) / sizeof(swrValues[0]);
+    lv_draw_line_dsc_t curve_dsc;
+    lv_draw_line_dsc_init(&curve_dsc);
+    curve_dsc.width = 1;
+    curve_dsc.opa = LV_OPA_60;
+    for (int si = 0; si < swrCount; si++) {
+        const float swr = swrValues[si];
+        const float gamma = (swr - 1.0f) / (swr + 1.0f);
+        const float gammaSq = gamma * gamma;
+        curve_dsc.color = lv_color_hex(swrColors[si]);
+        bool havePrev = false;
+        int prevX = 0, prevY = 0;
+        for (int i = 1; i <= 40; i++) {
+            const float fwdFrac = (float)i / 40.0f;
+            const float refFrac = fwdFrac * gammaSq;
+            if (refFrac > 1.0f) continue;
+            const float fwdPhi = PI_F + fwdFrac * (PI_F / 2.0f);
+            const float refPhi = 2.0f * PI_F - refFrac * (PI_F / 2.0f);
+            int fwdTx, fwdTy, refTx, refTy;
+            tipOnArc(fwdPhi, fwdTx, fwdTy);
+            tipOnArc(refPhi, refTx, refTy);
+            // Intersection of (fwdPx,fwdPy)-(fwdTx,fwdTy) and (refPx,refPy)-(refTx,refTy)
+            const float dx1 = fwdTx - fwdPx, dy1 = fwdTy - fwdPy;
+            const float dx2 = refTx - refPx, dy2 = refTy - refPy;
+            const float denom = dx1 * dy2 - dy1 * dx2;
+            if (fabsf(denom) < 0.001f) continue;
+            const float t = ((refPx - fwdPx) * dy2 - (refPy - fwdPy) * dx2) / denom;
+            const int ix = fwdPx + (int)(t * dx1);
+            const int iy = fwdPy + (int)(t * dy1);
+            if (havePrev) {
+                lv_point_t p1 = {(lv_coord_t)prevX, (lv_coord_t)prevY};
+                lv_point_t p2 = {(lv_coord_t)ix,    (lv_coord_t)iy};
+                lv_draw_line(draw_ctx, &curve_dsc, &p1, &p2);
+            }
+            prevX = ix; prevY = iy; havePrev = true;
         }
     }
 
-    // Draw pivot dots
-    lv_draw_rect_dsc_t rect_dsc;
-    lv_draw_rect_dsc_init(&rect_dsc);
+    // ----- Tick marks + labels for the two scales -----
+    auto drawScale = [&](float phiZero, float phiFull, uint32_t color) {
+        const int N = 8;
+        for (int i = 0; i <= N; i++) {
+            const float f = (float)i / (float)N;
+            const float phi = phiZero + (phiFull - phiZero) * f;
+            const float cos_a = cosf(phi);
+            const float sin_a = sinf(phi);
+            const bool major = (i % 2 == 0);
+            const int tickLen = major ? 10 : 5;
+            lv_point_t p1 = {(lv_coord_t)(cx + (int)(cos_a * (radius + 2))),
+                             (lv_coord_t)(cy + (int)(sin_a * (radius + 2)))};
+            lv_point_t p2 = {(lv_coord_t)(cx + (int)(cos_a * (radius + 2 + tickLen))),
+                             (lv_coord_t)(cy + (int)(sin_a * (radius + 2 + tickLen)))};
+            lv_draw_line_dsc_t tick_dsc;
+            lv_draw_line_dsc_init(&tick_dsc);
+            tick_dsc.color = major ? lv_color_hex(color) : lv_color_hex(0x666666);
+            tick_dsc.width = major ? 2 : 1;
+            lv_draw_line(draw_ctx, &tick_dsc, &p1, &p2);
+            if (major && i < N) {
+                int val = (int)(f * m_maxPower);
+                char buf[8];
+                snprintf(buf, sizeof(buf), "%d", val);
+                lv_draw_label_dsc_t label_dsc;
+                lv_draw_label_dsc_init(&label_dsc);
+                label_dsc.color = lv_color_hex(color);
+                label_dsc.font = &lv_font_montserrat_14;
+                label_dsc.align = LV_TEXT_ALIGN_CENTER;
+                int lx = cx + (int)(cos_a * (radius - 16));
+                int ly = cy + (int)(sin_a * (radius - 16));
+                lv_area_t label_area = {(lv_coord_t)(lx - 16), (lv_coord_t)(ly - 8),
+                                         (lv_coord_t)(lx + 16), (lv_coord_t)(ly + 8)};
+                lv_draw_label(draw_ctx, &label_dsc, &label_area, buf, NULL);
+            }
+        }
+    };
+    drawScale(PI_F,         1.5f * PI_F, 0x22c55e);  // forward, left-half
+    drawScale(2.0f * PI_F,  1.5f * PI_F, 0xef4444);  // reflected, right-half
 
-    // Forward needle pivot (bottom-left)
-    int fwdPx = cx - radius + 15;
-    int fwdPy = cy;
-    rect_dsc.bg_color = lv_color_hex(0x00aa00);
-    rect_dsc.radius = LV_RADIUS_CIRCLE;
-    lv_area_t pivot_area = {(lv_coord_t)(fwdPx - 5), (lv_coord_t)(fwdPy - 5),
-                            (lv_coord_t)(fwdPx + 5), (lv_coord_t)(fwdPy + 5)};
-    lv_draw_rect(draw_ctx, &rect_dsc, &pivot_area);
+    // Shared max-scale label above the apex
+    {
+        char buf[8];
+        snprintf(buf, sizeof(buf), "%d", (int)m_maxPower);
+        lv_draw_label_dsc_t label_dsc;
+        lv_draw_label_dsc_init(&label_dsc);
+        label_dsc.color = lv_color_hex(0xcccccc);
+        label_dsc.font = &lv_font_montserrat_14;
+        label_dsc.align = LV_TEXT_ALIGN_CENTER;
+        lv_area_t a = {(lv_coord_t)(cx - 22), (lv_coord_t)(cy - radius - 18),
+                       (lv_coord_t)(cx + 22), (lv_coord_t)(cy - radius - 2)};
+        lv_draw_label(draw_ctx, &label_dsc, &a, buf, NULL);
+    }
 
-    // Reflected needle pivot (bottom-right)
-    int refPx = cx + radius - 15;
-    int refPy = cy;
-    rect_dsc.bg_color = lv_color_hex(0xaa0000);
-    lv_area_t pivot_area2 = {(lv_coord_t)(refPx - 5), (lv_coord_t)(refPy - 5),
-                             (lv_coord_t)(refPx + 5), (lv_coord_t)(refPy + 5)};
-    lv_draw_rect(draw_ctx, &rect_dsc, &pivot_area2);
-
-    // Calculate needle angles (0 to 180 degrees)
-    float fwdAngle = 3.14159f * (1.0f - fminf(m_fwdPower / m_maxPower, 1.0f));
-    float refAngle = 3.14159f * (1.0f - fminf(m_refPower / m_maxPower, 1.0f));
-
-    // Draw forward needle (green, pivots from bottom-left)
-    int fwdLen = radius * 2 - 30;
-    lv_point_t fwdStart = {(lv_coord_t)fwdPx, (lv_coord_t)fwdPy};
-    lv_point_t fwdEnd = {(lv_coord_t)(fwdPx + (int)(cosf(fwdAngle) * fwdLen)),
-                         (lv_coord_t)(fwdPy - (int)(sinf(fwdAngle) * fwdLen))};
+    // ----- Needles (tip on arc) -----
+    const float fwdFrac = fminf(m_fwdPower / m_maxPower, 1.0f);
+    const float refFrac = fminf(m_refPower / m_maxPower, 1.0f);
+    const float fwdPhi  = PI_F + fwdFrac * (PI_F / 2.0f);
+    const float refPhi  = 2.0f * PI_F - refFrac * (PI_F / 2.0f);
+    int fwdTx, fwdTy, refTx, refTy;
+    tipOnArc(fwdPhi, fwdTx, fwdTy);
+    tipOnArc(refPhi, refTx, refTy);
 
     lv_draw_line_dsc_t needle_dsc;
     lv_draw_line_dsc_init(&needle_dsc);
-    needle_dsc.color = lv_color_hex(0x00ff00);
     needle_dsc.width = 3;
     needle_dsc.round_end = true;
+
+    needle_dsc.color = lv_color_hex(0x00ff00);
+    lv_point_t fwdStart = {(lv_coord_t)fwdPx, (lv_coord_t)fwdPy};
+    lv_point_t fwdEnd   = {(lv_coord_t)fwdTx, (lv_coord_t)fwdTy};
     lv_draw_line(draw_ctx, &needle_dsc, &fwdStart, &fwdEnd);
 
-    // Draw reflected needle (red, pivots from bottom-right)
-    int refLen = radius * 2 - 30;
-    lv_point_t refStart = {(lv_coord_t)refPx, (lv_coord_t)refPy};
-    lv_point_t refEnd = {(lv_coord_t)(refPx - (int)(cosf(refAngle) * refLen)),
-                         (lv_coord_t)(refPy - (int)(sinf(refAngle) * refLen))};
-
     needle_dsc.color = lv_color_hex(0xff0000);
-    needle_dsc.width = 3;
+    lv_point_t refStart = {(lv_coord_t)refPx, (lv_coord_t)refPy};
+    lv_point_t refEnd   = {(lv_coord_t)refTx, (lv_coord_t)refTy};
     lv_draw_line(draw_ctx, &needle_dsc, &refStart, &refEnd);
+
+    // ----- Pivot dots on top of needles -----
+    lv_draw_rect_dsc_t rect_dsc;
+    lv_draw_rect_dsc_init(&rect_dsc);
+    rect_dsc.radius = LV_RADIUS_CIRCLE;
+    rect_dsc.bg_color = lv_color_hex(0x00aa00);
+    lv_area_t fwdPivot = {(lv_coord_t)(fwdPx - 5), (lv_coord_t)(fwdPy - 5),
+                          (lv_coord_t)(fwdPx + 5), (lv_coord_t)(fwdPy + 5)};
+    lv_draw_rect(draw_ctx, &rect_dsc, &fwdPivot);
+    rect_dsc.bg_color = lv_color_hex(0xaa0000);
+    lv_area_t refPivot = {(lv_coord_t)(refPx - 5), (lv_coord_t)(refPy - 5),
+                          (lv_coord_t)(refPx + 5), (lv_coord_t)(refPy + 5)};
+    lv_draw_rect(draw_ctx, &rect_dsc, &refPivot);
 
     // Draw SWR indicator text in center
     char swrBuf[16];
