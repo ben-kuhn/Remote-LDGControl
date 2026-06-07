@@ -29,7 +29,7 @@
     <circle cx="520" cy="420" r="4" fill="#c0a030" stroke="#999" stroke-width="1"/><text x="510" y="423" text-anchor="end" fill="#3b82f6" font-size="7" font-weight="bold">16</text>
     <circle cx="520" cy="440" r="4" fill="#c0a030" stroke="#999" stroke-width="1"/><text x="510" y="443" text-anchor="end" fill="#d946ef" font-size="7" font-weight="bold">17</text>
     <circle cx="520" cy="460" r="4" fill="#c0a030" stroke="#999" stroke-width="1"/><text x="510" y="463" text-anchor="end" fill="#9ca3af" font-size="7" font-weight="bold">5</text>
-    <circle cx="520" cy="480" r="4" fill="#c0a030" stroke="#999" stroke-width="1"/><text x="510" y="483" text-anchor="end" fill="#666" font-size="7">10</text>
+    <circle cx="520" cy="480" r="4" fill="#c0a030" stroke="#999" stroke-width="1"/><text x="510" y="483" text-anchor="end" fill="#eab308" font-size="7" font-weight="bold">18</text>
     <circle cx="520" cy="500" r="4" fill="#c0a030" stroke="#999" stroke-width="1"/><text x="510" y="503" text-anchor="end" fill="#eab308" font-size="7" font-weight="bold">19</text>
     <circle cx="520" cy="520" r="4" fill="#c0a030" stroke="#999" stroke-width="1"/><text x="510" y="523" text-anchor="end" fill="#22c55e" font-size="7">GND</text>
     <circle cx="520" cy="540" r="4" fill="#c0a030" stroke="#999" stroke-width="1"/><text x="510" y="543" text-anchor="end" fill="#a855f7" font-size="7" font-weight="bold">21</text>
@@ -92,6 +92,8 @@
 
   <!-- ==================== WIRING LINES ==================== -->
   <g stroke-width="2" fill="none">
+    <!-- Display P6 (SCK) → GPIO18 (Left y=480) -->
+    <path d="M 265 296 L 520 486" stroke="#eab308"/><text x="390" y="385" text-anchor="middle" fill="#eab308" font-size="9">SCK</text>
     <!-- Display P7 (MOSI) → GPIO23 (Left y=620) -->
     <path d="M 265 321 L 520 626" stroke="#eab308"/><text x="390" y="468" text-anchor="middle" fill="#eab308" font-size="9">MOSI</text>
     <!-- Display P8 (MISO) → GPIO19 (Left y=500) -->
@@ -164,7 +166,7 @@
   <rect x="80" y="890" width="1090" height="50" rx="6" fill="#12141c" stroke="#2a2d3e"/>
   <text x="625" y="910" text-anchor="middle" fill="#22c55e" font-size="11" font-weight="bold">Pin-to-Pin Connections (NodeMCU ESP32S v1.1, USB top)</text>
   <g font-size="9" fill="#e8e8f0">
-    <text x="100" y="925">Display→ESP32: P7(MOSI)→23 | P8(MISO)→19 | P5(CS)→5 | P4(DC)→15 | P3(SDA)→21 | P2(SCL)→22 | P1(IRQ)→SVN</text>
+    <text x="100" y="925">Display→ESP32: P6(SCK)→18 | P7(MOSI)→23 | P8(MISO)→19 | P5(CS)→5 | P4(DC)→15 | P3(SDA)→21 | P2(SCL)→22 | P1(IRQ)→SVN</text>
     <text x="100" y="935">Display→ESP32: P10(+5V)→5V | P9(GND)→GND | Tuner: Pin2→GND | Pin3→16 | Pin4→17 | Pin1: N/C</text>
     <text x="650" y="925">Voltage Sense: 100k/22k divider → 34 | Power: 13.8V → LM7805 → 5V → VIN</text>
   </g>
