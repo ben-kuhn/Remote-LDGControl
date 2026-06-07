@@ -28,8 +28,8 @@ ESP32-based remote control interface for LDG AT-1000ProII / AT-600ProII auto-tun
 
 ### Optional (Display Unit)
 - BTT TFT35-SPI display (ILI9488 controller)
-- XPT2046 touchscreen (built into BTT TFT35)
-- LM2940CT-5.0 linear regulator + TO-220 heatsink (powers ESP32 + display from tuner's +12V)
+- NS2009 I2C touchscreen (built into BTT TFT35)
+- LM7805 linear regulator + TO-220 heatsink (powers ESP32 + display from 12V supply)
 
 ### Wiring
 
@@ -40,7 +40,7 @@ See [WIRING.md](WIRING.md) for complete diagrams. Quick reference:
 | Tuner GND | GND | Common ground |
 | Tuner TX | GPIO 16 | Tuner TX → ESP32 RX |
 | Tuner RX | GPIO 17 | ESP32 TX → Tuner RX |
-| Tuner +12V | LM2940CT-5.0 IN | Linear regulator input (display unit) |
+| 12V Supply | LM7805 IN | Separate 12V supply → 5V regulated |
 | Display MOSI | GPIO 23 | Shared SPI bus |
 | Display MISO | GPIO 19 | Shared SPI bus |
 | Display SCLK | GPIO 18 | Shared SPI bus |
@@ -48,8 +48,10 @@ See [WIRING.md](WIRING.md) for complete diagrams. Quick reference:
 | Display DC | GPIO 15 | Data/command |
 | Display RST | GPIO 26 | Reset |
 | Display BL | GPIO 32 | Backlight |
-| Touch CS | GPIO 33 | Touch chip select |
+| Touch SDA | GPIO 21 | I2C data (NS2009) |
+| Touch SCL | GPIO 22 | I2C clock (NS2009) |
 | Touch IRQ | GPIO 39 | Touch interrupt |
+| Voltage Sense | GPIO 34 | ADC, 100k/22k divider (optional) |
 
 **Serial**: 38400 baud, 8N1, TTL (5V). Not RS-232.
 
