@@ -1,40 +1,10 @@
 # Wiring Diagram
 
-See [wiring-diagram.svg](wiring-diagram.svg) for the graphical wiring diagram.
+![Wiring Diagram](wiring-diagram.svg)
 
 ## ESP32 NodeMCU Pin Assignment
 
-```
-                        ┌──────────────────────────────────────────┐
-                        │         NodeMCU ESP32S v1.1              │
-                        │                                          │
-             USB ───────┤                                          │
-                        │                                          │
-   LEFT SIDE            │                                          │   RIGHT SIDE
-                        │                                          │
-   CLK ─────────────────┤ CLK                                 5V   ├──── +5V (regulated)
-   SD0 ─────────────────┤ SD0                                 GND  ├──── GND (common)
-   SD1 ─────────────────┤ SD1                                 S03  ├
-   15 ──── TFT DC ──────┤ 15 (SDA)                            S02  ├
-   2 ───────────────────┤ 2                                   13   ├
-   0 ───────────────────┤ 0                                   GND  ├
-   4 ───────────────────┤ 4                                   12   ├
-   16 ──── Tuner RX ────┤ 16                                  14   ├
-   17 ──── Tuner TX ────┤ 17                                  27   ├
-   5 ───── TFT CS ──────┤ 5                                   26   ├
-   10 ──────────────────┤ 10                                  25   ├
-   19 ──── SPI MISO ────┤ 19                                  33   ├
-   GND ──── GND ────────┤ GND                                 32   ├──── TFT Backlight
-   21 ──── I2C SDA ─────┤ 21                                  35   ├
-   RX ──────────────────┤ RX                                  34   ├──── Voltage Sense
-   TX ──────────────────┤ TX                                  SVN  ├──── Touch IRQ (GPIO 39)
-   22 ──── I2C SCL ─────┤ 22                                  SVP  ├
-   23 ──── SPI MOSI ────┤ 23                                  EN   ├──── Reset button
-   GND ──── GND ────────┤ GND                                 3V3  ├──── 3.3V
-                        │                                          │
-                        └──────────────────────────────────────────┘
-                                    [ESP32 module]
-```
+The graphical diagram above shows the complete wiring. For quick reference, here are the key pin assignments:
 
 ## Connection 1: Tuner TTL Interface (4-pin mini-DIN)
 
@@ -42,35 +12,23 @@ See [wiring-diagram.svg](wiring-diagram.svg) for the graphical wiring diagram.
 
 ### Mini-DIN Connector Pinout (viewed from front, pins facing you)
 
-```
-       ┌─────┐
-      /  1   \     Pin 1: N/C (not connected)
-     | 4   2 |    Pin 2: GND
-      \  3   /     Pin 3: TX  (tuner → ESP32 GPIO 16)
-       └─────┘     Pin 4: RX  (ESP32 GPIO 17 → tuner)
-```
+| Pin | Signal | Connection |
+|-----|--------|------------|
+| 1 | N/C | Not connected |
+| 2 | GND | ESP32 GND |
+| 3 | TX | ESP32 GPIO 16 (tuner → ESP32) |
+| 4 | RX | ESP32 GPIO 17 (ESP32 → tuner) |
 
-### Complete Tuner Wiring
+### Tuner Wiring Summary
 
-```
-┌─────────────────────────────────────────────────────────┐
-│              LDG AT-1000ProII Rear Panel                │
-│                                                         │
-│   4-pin mini-DIN (REMOTE connector)                     │
-│                                                         │
-│   Pin 1 ─── N/C  (not connected)                        │
-│   Pin 2 ─── GND  ─────────────────────── ESP32 GND     │
-│   Pin 3 ─── TX   ─────────────────────── ESP32 GPIO 16 │
-│   Pin 4 ─── RX   ─────────────────────── ESP32 GPIO 17 │
-│                                                         │
-│   Serial: 38400 baud, 8N1, TTL (5V)                    │
-│                                                         │
-│   NOTE: If your ESP32 is 3.3V logic only, use a        │
-│   level shifter (e.g., TXS0108E or 74HCT245) between   │
-│   the ESP32 and tuner for reliable communication.      │
-│   Many ESP32 dev boards have 5V-tolerant GPIO.         │
-└─────────────────────────────────────────────────────────┘
-```
+- **Pin 1**: N/C (not connected)
+- **Pin 2**: GND → ESP32 GND
+- **Pin 3**: TX → ESP32 GPIO 16
+- **Pin 4**: RX → ESP32 GPIO 17
+
+**Serial**: 38400 baud, 8N1, TTL (5V)
+
+**Note**: If your ESP32 is 3.3V logic only, use a level shifter (e.g., TXS0108E or 74HCT245) between the ESP32 and tuner for reliable communication. Many ESP32 dev boards have 5V-tolerant GPIO.
 
 ## Connection 2: Power Supply
 
@@ -84,22 +42,19 @@ Power is supplied by a separate 12V DC source (13.8V typical, 2A minimum). An LM
 
 A TO-220 package with a heatsink is required.
 
+### Power Supply Circuit
+
 ```
-12V Supply (13.8V typical, 2A min)
-    │
-    ├──┤ 100nF ceramic ──┤ (close to regulator input)
-    │
-    ┌─────────────────────────┐
-    │   LM7805 (TO-220)       │  ← requires heatsink
-    │   IN ───────────────────┤
-    │   GND ──────────────────┤
-    │   OUT ──────────────────├── 5V ── ESP32 5V / Display +5V
-    └─────────────────────────┘
-    │
-    ├──┤ 10µF ──┤ (close to regulator output)
-    │
-    └── GND (common) ─── ESP32 GND / Display GND / Tuner GND
+12V Supply → [100nF] → LM7805 IN → LM7805 OUT → [10µF] → 5V
+                          (heatsink)
 ```
+
+- **Input**: 12V DC (13.8V typical, 2A minimum)
+- **Regulator**: LM7805 (TO-220) with heatsink
+- **Output**: 5V regulated for ESP32 and display
+- **Input capacitor**: 100nF ceramic (place close to regulator input)
+- **Output capacitor**: 10µF (place close to regulator output)
+- **Dissipation**: ~3.1W at 350mA — heatsink required
 
 ## Connection 3: BTT TFT35-SPI Display
 
@@ -124,71 +79,47 @@ The display connects via a JST-XH 10-pin connector. The display uses SPI for the
 
 The BTT TFT35-SPI V2.1 uses an NS2009 I2C touch controller at address 0x48. This is a separate bus from the display SPI — only SDA (GPIO 21), SCL (GPIO 22), and IRQ (GPIO 39) are needed.
 
-### SPI Bus Wiring (display only)
+### SPI and I2C Bus Summary
 
-```
-                    ESP32
-                  ┌───────┐
-                  │ GPIO18├── SCLK ──────── Display SCK (P6)
-                  │       │
-                  │ GPIO23├── MOSI ──────── Display MOSI (P7)
-                  │       │
-                  │ GPIO19├── MISO ──────── Display MISO (P8)
-                  │       │
-                  │ GPIO 5├── CS ────────── Display NSS (P5)
-                  │       │
-                  │ GPIO15├── DC ────────── Display RS (P4)
-                  │       │
-                  │ GPIO32├── BL ────────── Display Backlight
-                  └───────┘
+**SPI (Display):**
+- GPIO 18 → Display SCK (P6)
+- GPIO 23 → Display MOSI (P7)
+- GPIO 19 → Display MISO (P8)
+- GPIO 5 → Display NSS/CS (P5)
+- GPIO 15 → Display RS/DC (P4)
+- GPIO 32 → Display Backlight
 
-                  ┌───────┐
-                  │ GPIO21├── SDA ───────── Touch SDA (P3)
-                  │       │
-                  │ GPIO22├── SCL ───────── Touch SCL (P2)
-                  │       │
-                  │ GPIO39├── IRQ ───────── Touch IORQ (P1)
-                  └───────┘
-```
+**I2C (Touch):**
+- GPIO 21 → Touch SDA (P3)
+- GPIO 22 → Touch SCL (P2)
+- GPIO 39 → Touch IORQ (P1)
 
 ## Connection 4: Voltage Sense (Optional)
 
 Auto-detects the tuner's PSU voltage for accurate power calculation. Uses a voltage divider on GPIO 34 (ADC1_CH6, input-only).
 
-```
-+12V sense tap (from 12V supply)
-    │
-   [100k]
-    │
-    ├──── GPIO 34 (ADC)
-    │
-   [22k]
-    │
-   GND
+### Voltage Divider Circuit
 
-Additional components:
-- 100nF capacitor (filter, across 22k resistor)
-- 3.3V TVS diode (clamp to protect GPIO)
+```
++12V → [100k] → GPIO 34 → [22k] → GND
+                  │
+                [100nF] (filter)
+                  │
+               [TVS 3.3V] (protection)
 ```
 
-Divider ratio: 5.545 = (100k + 22k) / 22k
-Valid input range: 8.0V - 18.0V (falls back to 13.8V default if out of range)
+- **Divider ratio**: 5.545 = (100k + 22k) / 22k
+- **ADC pin**: GPIO 34 (ADC1_CH6, input-only)
+- **Valid range**: 8.0V - 18.0V (falls back to 13.8V default if out of range)
 
 ## Connection 5: Remote Unit (No Display)
 
 Only the tuner TTL interface and power supply are needed.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│              Remote Unit (ESP32 only)                   │
-│                                                         │
-│   12V Supply ── LM7805 ── 5V ── ESP32 5V              │
-│   ESP32 GND   ─── Tuner Pin 2 (GND)                    │
-│   ESP32 GPIO16 ─── Tuner Pin 3 (TX)                    │
-│   ESP32 GPIO17 ─── Tuner Pin 4 (RX)                    │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
+- **12V Supply** → LM7805 → 5V → ESP32 5V
+- **ESP32 GND** → Tuner Pin 2 (GND)
+- **ESP32 GPIO 16** → Tuner Pin 3 (TX)
+- **ESP32 GPIO 17** → Tuner Pin 4 (RX)
 
 ## Parts List
 

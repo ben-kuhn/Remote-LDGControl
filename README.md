@@ -33,7 +33,9 @@ ESP32-based remote control interface for LDG AT-1000ProII / AT-600ProII auto-tun
 
 ### Wiring
 
-See [WIRING.md](WIRING.md) for complete diagrams. Quick reference:
+See [WIRING.md](WIRING.md) for complete details. Quick reference:
+
+![Wiring Diagram](wiring-diagram.svg)
 
 | Connection | ESP32 Pin | Notes |
 |------------|-----------|-------|
