@@ -30,10 +30,18 @@ jobs:
 
       - name: Copy firmware binaries
         run: |
+          # esp-web-tools needs the bootloader + partition table + boot_app0
+          # + application image at their proper offsets. PlatformIO produces
+          # only the application as firmware.bin; the others live alongside
+          # in .pio/build and in the framework's tools/partitions/ directory.
           mkdir -p firmware
-          cp .pio/build/esp32-display/firmware.bin firmware/ldg-tuner-display.bin
-          cp .pio/build/esp32-remote/firmware.bin firmware/ldg-tuner-remote.bin
-          cp .pio/build/esp32-nodisplay/firmware.bin firmware/ldg-tuner-nodisplay.bin
+          for variant in display remote nodisplay; do
+            cp .pio/build/esp32-${variant}/bootloader.bin firmware/ldg-tuner-${variant}-bootloader.bin
+            cp .pio/build/esp32-${variant}/partitions.bin firmware/ldg-tuner-${variant}-partitions.bin
+            cp .pio/build/esp32-${variant}/firmware.bin   firmware/ldg-tuner-${variant}.bin
+          done
+          # boot_app0.bin is identical across builds; ship one copy.
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin firmware/boot_app0.bin
 
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v4
@@ -89,49 +97,38 @@ jobs:
           mkdir -p dist
           cp flash.html dist/index.html
           cp firmware/*.bin dist/
-          # Create manifest for esp-web-tools
-          cat > dist/manifest-display.json << 'EOF'
+          # ESP32 image parts and their flash offsets (per partitions_custom.csv):
+          #   0x1000  bootloader.bin   (second-stage bootloader)
+          #   0x8000  partitions.bin   (partition table)
+          #   0xe000  boot_app0.bin    (OTA selector seed)
+          #   0x10000 firmware.bin     (application)
+          # Previously the manifest listed only firmware.bin at offset 0,
+          # which clobbered the bootloader and left the chip unbootable
+          # after a long erase.
+          for variant in display remote nodisplay; do
+            case $variant in
+              display)   pretty="LDG Tuner Controller (Display)" ;;
+              remote)    pretty="LDG Tuner Controller (Remote)" ;;
+              nodisplay) pretty="LDG Tuner Controller (No Display)" ;;
+            esac
+            cat > dist/manifest-${variant}.json << EOF
           {
-            "name": "LDG Tuner Controller (Display)",
+            "name": "${pretty}",
             "version": "${{ github.sha }}",
             "builds": [
               {
                 "chipFamily": "ESP32",
                 "parts": [
-                  { "path": "ldg-tuner-display.bin", "offset": 0 }
+                  { "path": "ldg-tuner-${variant}-bootloader.bin", "offset": 4096 },
+                  { "path": "ldg-tuner-${variant}-partitions.bin", "offset": 32768 },
+                  { "path": "boot_app0.bin",                       "offset": 57344 },
+                  { "path": "ldg-tuner-${variant}.bin",            "offset": 65536 }
                 ]
               }
             ]
           }
           EOF
-          cat > dist/manifest-remote.json << 'EOF'
-          {
-            "name": "LDG Tuner Controller (Remote)",
-            "version": "${{ github.sha }}",
-            "builds": [
-              {
-                "chipFamily": "ESP32",
-                "parts": [
-                  { "path": "ldg-tuner-remote.bin", "offset": 0 }
-                ]
-              }
-            ]
-          }
-          EOF
-          cat > dist/manifest-nodisplay.json << 'EOF'
-          {
-            "name": "LDG Tuner Controller (No Display)",
-            "version": "${{ github.sha }}",
-            "builds": [
-              {
-                "chipFamily": "ESP32",
-                "parts": [
-                  { "path": "ldg-tuner-nodisplay.bin", "offset": 0 }
-                ]
-              }
-            ]
-          }
-          EOF
+          done
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
