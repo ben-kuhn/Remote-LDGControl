@@ -69,12 +69,26 @@ void handleSave(httpsserver::HTTPRequest * req, httpsserver::HTTPResponse * res)
         // Read POST body. The client posts application/x-www-form-urlencoded
         // (see portalHTML — URLSearchParams body); we parse it manually since
         // esp32_idf5_https_server doesn't have a built-in form parser.
-        std::string body = "";
+        //
+        // readBytes() is non-blocking and returns 0 whenever the SSL/TCP
+        // receive buffer is momentarily empty — NOT only at end-of-body — so
+        // we must drive the loop off requestComplete(). The body almost
+        // always spans multiple SSL records on a real client (phone over the
+        // AP), and the old `while (readBytes() > 0)` loop would bail out
+        // after the first chunk and miss `ssid=`.
+        std::string body;
         uint8_t buf[128];
-        size_t len;
-        while ((len = req->readBytes(buf, sizeof(buf))) > 0) {
-            body.append((char*)buf, len);
+        uint32_t deadline = millis() + 5000;
+        while (!req->requestComplete() && millis() < deadline) {
+            size_t len = req->readBytes(buf, sizeof(buf));
+            if (len > 0) {
+                body.append((char*)buf, len);
+                if (body.size() > 4096) break;  // sanity cap
+            } else {
+                delay(1);
+            }
         }
+        Serial.printf("portal /save: read %u body bytes\n", (unsigned)body.size());
 
         String bodyStr = String(body.c_str());
         String ssid = "", wifiPass = "", webUser = "", webPass = "";

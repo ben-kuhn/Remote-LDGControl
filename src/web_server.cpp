@@ -58,12 +58,20 @@ static bool authenticate(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
 }
 
 static std::string readRequestBody(hsv::HTTPRequest* req) {
+    // readBytes() is non-blocking and returns 0 between SSL records, not only
+    // at end-of-body. Drive the loop off requestComplete() so we don't bail
+    // mid-body when the receive buffer is briefly empty.
     std::string body;
     uint8_t buf[256];
-    size_t n;
-    while ((n = req->readBytes(buf, sizeof(buf))) > 0) {
-        body.append((char*)buf, n);
-        if (body.size() > 8192) break;  // sanity cap
+    uint32_t deadline = millis() + 5000;
+    while (!req->requestComplete() && millis() < deadline) {
+        size_t n = req->readBytes(buf, sizeof(buf));
+        if (n > 0) {
+            body.append((char*)buf, n);
+            if (body.size() > 8192) break;  // sanity cap
+        } else {
+            delay(1);
+        }
     }
     return body;
 }
