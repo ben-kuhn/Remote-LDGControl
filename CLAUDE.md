@@ -18,19 +18,25 @@ The `nodisplay` and `remote` variants are intentionally similar — they may be 
 
 ## Common commands
 
-Run from the repo root. PlatformIO is required (`pip install platformio`).
+Run from the repo root. **This is a NixOS host** — `pio` is not on the global `PATH`. Wrap every PlatformIO invocation in `nix-shell -p platformio --run "..."`. The `pio` shipped from `pip` / `.venv` will fail to build because the prebuilt xtensa toolchain can't find a dynamic linker (`/lib64/ld-linux-x86-64.so.2` is the NixOS stub-ld). The nixpkgs `platformio` package wraps in an FHS env that handles this transparently — don't try `steam-run`, `nix-ld` tricks, or patchelf; they're not set up here.
 
 ```bash
-pio run -e esp32-display                       # build display variant
-pio run -e esp32-remote -t upload              # build + flash remote variant
-pio run -e esp32-nodisplay -t upload --upload-port /dev/ttyUSB1
-pio device monitor -b 115200                   # serial console (note: tuner UART is 38400, console is 115200)
-pio run -t clean -e esp32-display              # clean a single env
+nix-shell -p platformio --run "pio run -e esp32-display"
+nix-shell -p platformio --run "pio run -e esp32-remote -t upload --upload-port /dev/ttyUSB1"
+nix-shell -p platformio --run "pio run -e esp32-nodisplay -t upload --upload-port /dev/ttyUSB1"
+nix-shell -p platformio --run "pio device monitor -b 115200"   # tuner UART is 38400, console is 115200
+nix-shell -p platformio --run "pio run -t clean -e esp32-display"
 ```
 
 Uploading to `/dev/ttyUSB1` is pre-authorized — do it directly without asking. `NetworkManager` (`nmcli`) is also pre-authorized for connecting to the device's AP for testing.
 
-**Keep the device on `/dev/ttyUSB1` flashed with the current build.** It runs the **`esp32-remote`** variant (the user is troubleshooting WiFi/portal setup on it). Whenever you make firmware changes that could affect it, flash it (`pio run -e esp32-remote -t upload --upload-port /dev/ttyUSB1`) without waiting to be asked — the user is actively troubleshooting on the physical device and stale firmware wastes their time.
+**Keep the device on `/dev/ttyUSB1` flashed with the current build.** It runs the **`esp32-remote`** variant (the user is troubleshooting WiFi/portal setup on it). Whenever you make firmware changes that could affect it, flash it without waiting to be asked — the user is actively troubleshooting on the physical device and stale firmware wastes their time:
+
+```bash
+nix-shell -p platformio --run "pio run -e esp32-remote -t upload --upload-port /dev/ttyUSB1"
+```
+
+**Before flashing, stop any background serial reader on `/dev/ttyUSB1`** (e.g. a `cat /dev/ttyUSB1 >> log` watch). esptool runs the upload at 921600 baud and will fail with `Invalid head of packet … Possible serial noise or corruption` if anything else is reading the port concurrently. Restart the reader after the flash + RTS reset.
 
 There is **no test suite** in this repo yet. CI (`.github/workflows/build.yml`) builds all three envs on push, releases binaries on tags, and deploys `flash.html` to GitHub Pages.
 
