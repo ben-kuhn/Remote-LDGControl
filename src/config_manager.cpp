@@ -29,38 +29,71 @@ void handleScan(httpsserver::HTTPRequest * req, httpsserver::HTTPResponse * res)
     res->print(configManager.scanNetworksJSON());
 }
 
+// Decode an application/x-www-form-urlencoded value: '+' -> space, '%xx' -> byte.
+// Anything not matching is passed through unchanged, so a stray '%' is preserved
+// rather than swallowed.
+static String urlDecode(const String& src) {
+    auto hexVal = [](char c) -> int {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    };
+    String out;
+    out.reserve(src.length());
+    int len = src.length();
+    for (int i = 0; i < len; i++) {
+        char c = src[i];
+        if (c == '+') {
+            out += ' ';
+        } else if (c == '%' && i + 2 < len) {
+            int h1 = hexVal(src[i + 1]);
+            int h2 = hexVal(src[i + 2]);
+            if (h1 >= 0 && h2 >= 0) {
+                out += (char)((h1 << 4) | h2);
+                i += 2;
+            } else {
+                out += c;
+            }
+        } else {
+            out += c;
+        }
+    }
+    return out;
+}
+
 void handleSave(httpsserver::HTTPRequest * req, httpsserver::HTTPResponse * res) {
     res->setHeader("Content-Type", "application/json");
-    
+
     if (req->getMethod() == "POST") {
-        // Read POST body
+        // Read POST body. The client posts application/x-www-form-urlencoded
+        // (see portalHTML — URLSearchParams body); we parse it manually since
+        // esp32_idf5_https_server doesn't have a built-in form parser.
         std::string body = "";
         uint8_t buf[128];
         size_t len;
         while ((len = req->readBytes(buf, sizeof(buf))) > 0) {
             body.append((char*)buf, len);
         }
-        
-        // Parse form data
+
         String bodyStr = String(body.c_str());
         String ssid = "", wifiPass = "", webUser = "", webPass = "";
-        
+
         int pos = 0;
-        while (pos < bodyStr.length()) {
+        int bodyLen = bodyStr.length();
+        while (pos < bodyLen) {
             int ampPos = bodyStr.indexOf('&', pos);
-            if (ampPos < 0) ampPos = bodyStr.length();
+            if (ampPos < 0) ampPos = bodyLen;
             String pair = bodyStr.substring(pos, ampPos);
             int eqPos = pair.indexOf('=');
             if (eqPos >= 0) {
-                String key = pair.substring(0, eqPos);
-                String value = pair.substring(eqPos + 1);
-                value.replace("+", " ");
-                value.replace("%20", " ");
-                
-                if (key == "ssid") ssid = value;
+                String key   = urlDecode(pair.substring(0, eqPos));
+                String value = urlDecode(pair.substring(eqPos + 1));
+
+                if      (key == "ssid")     ssid     = value;
                 else if (key == "wifiPass") wifiPass = value;
-                else if (key == "webUser") webUser = value;
-                else if (key == "webPass") webPass = value;
+                else if (key == "webUser")  webUser  = value;
+                else if (key == "webPass")  webPass  = value;
             }
             pos = ampPos + 1;
         }
@@ -240,12 +273,12 @@ function selNet(el,ssid){document.querySelectorAll('.net-item').forEach(e=>e.cla
 function goStep(n){document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));document.getElementById('step'+n).classList.add('active');}
 function doStep1(){if(!selectedSSID){alert('Select a network');return;}goStep(2);}
 function doStep2(){
-let d=new FormData();
+let d=new URLSearchParams();
 d.append('ssid',selectedSSID);d.append('wifiPass',document.getElementById('wifiPass').value);
 d.append('webUser',document.getElementById('webUser').value);
 d.append('webPass',document.getElementById('webPass').value);
 goStep(3);
-fetch('/save',{method:'POST',body:d}).then(r=>r.json()).then(d=>{
+fetch('/save',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:d.toString()}).then(r=>r.json()).then(d=>{
 if(d.status==='ok'){setTimeout(()=>location.reload(),12000);}
 else{alert('Error: '+d.error);goStep(2);}
 }).catch(()=>{setTimeout(()=>location.reload(),12000);});
