@@ -30,6 +30,8 @@ pio run -t clean -e esp32-display              # clean a single env
 
 Uploading to `/dev/ttyUSB1` is pre-authorized — do it directly without asking. `NetworkManager` (`nmcli`) is also pre-authorized for connecting to the device's AP for testing.
 
+**Keep the device on `/dev/ttyUSB1` flashed with the current build.** It runs the **`esp32-remote`** variant (the user is troubleshooting WiFi/portal setup on it). Whenever you make firmware changes that could affect it, flash it (`pio run -e esp32-remote -t upload --upload-port /dev/ttyUSB1`) without waiting to be asked — the user is actively troubleshooting on the physical device and stale firmware wastes their time.
+
 There is **no test suite** in this repo yet. CI (`.github/workflows/build.yml`) builds all three envs on push, releases binaries on tags, and deploys `flash.html` to GitHub Pages.
 
 ### Testing
