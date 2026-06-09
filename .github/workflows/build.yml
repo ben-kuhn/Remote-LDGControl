@@ -26,7 +26,6 @@ jobs:
         run: |
           pio run -e esp32-display
           pio run -e esp32-remote
-          pio run -e esp32-nodisplay
 
       - name: Copy firmware binaries
         run: |
@@ -35,7 +34,7 @@ jobs:
           # only the application as firmware.bin; the others live alongside
           # in .pio/build and in the framework's tools/partitions/ directory.
           mkdir -p firmware
-          for variant in display remote nodisplay; do
+          for variant in display remote; do
             cp .pio/build/esp32-${variant}/bootloader.bin firmware/ldg-tuner-${variant}-bootloader.bin
             cp .pio/build/esp32-${variant}/partitions.bin firmware/ldg-tuner-${variant}-partitions.bin
             cp .pio/build/esp32-${variant}/firmware.bin   firmware/ldg-tuner-${variant}.bin
@@ -105,11 +104,10 @@ jobs:
           # Previously the manifest listed only firmware.bin at offset 0,
           # which clobbered the bootloader and left the chip unbootable
           # after a long erase.
-          for variant in display remote nodisplay; do
+          for variant in display remote; do
             case $variant in
               display)   pretty="LDG Tuner Controller (Display)" ;;
               remote)    pretty="LDG Tuner Controller (Remote)" ;;
-              nodisplay) pretty="LDG Tuner Controller (No Display)" ;;
             esac
             cat > dist/manifest-${variant}.json << EOF
           {

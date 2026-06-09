@@ -6,15 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ESP32 firmware (PlatformIO + Arduino framework) that remote-controls LDG AT-1000ProII / AT-600ProII auto-tuners. Target hardware is an **ESP32-WROOM** on a **NodeMCU breakout** connected over `/dev/ttyUSB1`.
 
-The firmware ships in three build variants from one source tree, selected by `-D` build flags:
+The firmware ships in two build variants from one source tree, selected by `-D` build flags:
 
 | Variant (`platformio.ini` env) | Defines | Role |
 |---|---|---|
 | `esp32-display` | `WITH_DISPLAY`, `WITH_TOUCH` | Shack controller: TFT + touch, web UI, MQTT, acts as **server** for a remote unit |
-| `esp32-remote` | `REMOTE_UNIT` | Headless box co-located with the tuner; **client** that connects to the display unit and forwards the serial link |
-| `esp32-nodisplay` | (none) | Headless + locally-connected tuner; web UI + MQTT only |
-
-The `nodisplay` and `remote` variants are intentionally similar — they may be unified later.
+| `esp32-remote` | (none) | Headless: full web server + tuner UART; can also act as remote client to a display unit via SSE |
 
 ## Common commands
 
@@ -23,7 +20,6 @@ Run from the repo root. **This is a NixOS host** — `pio` is not on the global 
 ```bash
 nix-shell -p platformio --run "pio run -e esp32-display"
 nix-shell -p platformio --run "pio run -e esp32-remote -t upload --upload-port /dev/ttyUSB1"
-nix-shell -p platformio --run "pio run -e esp32-nodisplay -t upload --upload-port /dev/ttyUSB1"
 nix-shell -p platformio --run "pio device monitor -b 115200"   # tuner UART is 38400, console is 115200
 nix-shell -p platformio --run "pio run -t clean -e esp32-display"
 ```
@@ -38,7 +34,7 @@ nix-shell -p platformio --run "pio run -e esp32-remote -t upload --upload-port /
 
 **Before flashing, stop any background serial reader on `/dev/ttyUSB1`** (e.g. a `cat /dev/ttyUSB1 >> log` watch). esptool runs the upload at 921600 baud and will fail with `Invalid head of packet … Possible serial noise or corruption` if anything else is reading the port concurrently. Restart the reader after the flash + RTS reset.
 
-There is **no test suite** in this repo yet. CI (`.github/workflows/build.yml`) builds all three envs on push, releases binaries on tags, and deploys `flash.html` to GitHub Pages.
+There is **no test suite** in this repo yet. CI (`.github/workflows/build.yml`) builds both envs on push, releases binaries on tags, and deploys `flash.html` to GitHub Pages.
 
 ### Testing
 
@@ -61,14 +57,14 @@ Initial WiFi setup / captive portal on the ESP32 in **AP mode** is the current p
 
 ## Architecture
 
-`src/main.cpp` is the orchestrator. `setup()` walks: `configManager.begin()` (load NVS or run captive portal) → `LittleFS` → `setupWiFi()` → `tuner.begin()` → `mqtt.begin()` → `webServer.begin()` → `display.begin()`. `loop()` branches on `REMOTE_UNIT` vs. display/nodisplay.
+`src/main.cpp` is the orchestrator. `setup()` walks: `configManager.begin()` (load NVS or run captive portal) → `LittleFS` → `setupWiFi()` → `tuner.begin()` → `mqtt.begin()` → `webServer.begin()` → `display.begin()`. `loop()` branches on `WITH_DISPLAY` vs. headless.
 
 Key modules (`include/` + `src/`):
 
 - **`config_manager`** — owns `DeviceConfig` (MQTT creds, web creds, PSU voltage, etc.), persists to NVS via `Preferences`, and runs the **first-boot captive portal**: softAP `LDGConfig` / `configure`, DNS hijack on port 53, HTTPS portal on 443. The portal collects SSID/PSK and a new web password, then joins STA mode.
 - **`portal_cert`** — generates a unique self-signed RSA cert/key pair on first boot, stores base64-DER in NVS. Avoids a hardcoded private key in firmware.
 - **`security`** — `RateLimiter` (10 req/s/IP) + `LoginTracker` (5 fails = 5 min lockout) + `Security::verifyAuth`. **All exposed endpoints must go through `Security::isAuthorized`** — this is project policy, not a suggestion.
-- **`web_server`** — runtime HTTP server (`ESPAsyncWebServer`) for the display/nodisplay variants. Serves the UI from `data/index.html` (LittleFS), JSON `/api/status`/`/api/config`, command endpoints, and `/api/events` (SSE). The SSE channel doubles as the **transport to the remote unit** — display pushes commands, remote subscribes.
+- **`web_server`** — runtime HTTP server (`ESPAsyncWebServer`) for all variants. Serves the UI from `data/index.html` (LittleFS), JSON `/api/status`/`/api/config`, command endpoints, and `/api/events` (SSE). The SSE channel doubles as the **transport to remote units** — when configured, the device acts as an SSE client to subscribe to commands from a display unit.
 - **`tuner_protocol`** — UART2 @ 38400 8N1 to the tuner. Implements wake (2× space), command bytes, 250 ms inter-command delay, and parses the 6-byte meter telemetry frames (forward/reflected raw + band, big-endian, terminated by `;;`). See README "Protocol Reference" for the byte-level spec.
 - **`mqtt_handler`** — optional, additive to the HTTP/SSE link. Telemetry under `ldg/tuner/telemetry/*`, commands on `ldg/tuner/command`.
 - **`display_ui`** — LVGL + TFT_eSPI cross-needle meter and touch buttons for `WITH_DISPLAY` builds. The web UI in `data/index.html` mirrors this layout (canvas cross-needle, 100/600/1000 W scales, side buttons).
@@ -76,7 +72,7 @@ Key modules (`include/` + `src/`):
 
 ### Remote ↔ Display link
 
-When `REMOTE_UNIT` is defined, the device connects to the display unit's AP, opens an SSE connection to `/api/events` for commands, and POSTs telemetry to `/api/telemetry` every 200 ms. Both directions use HTTP Basic Auth with the configured web credentials. The display unit falls back to its locally-attached tuner if the remote disconnects. See `connectSSEClient`, `processSSEClient`, `postTelemetry` in `main.cpp`.
+When the device is configured to act as a remote, it connects to the display unit's AP, opens an SSE connection to `/api/events` for commands, and POSTs telemetry to `/api/telemetry` every 200 ms. Both directions use HTTP Basic Auth with the configured web credentials. The display unit falls back to its locally-attached tuner if the remote disconnects. See `connectSSEClient`, `processSSEClient`, `postTelemetry` in `main.cpp`.
 
 ### Build-time vs. run-time config
 

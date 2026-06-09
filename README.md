@@ -12,10 +12,9 @@ ESP32-based remote control interface for LDG AT-1000ProII / AT-600ProII auto-tun
 - **Web Interface**: Responsive browser UI with Server-Sent Events (SSE) for live updates
 - **MQTT Integration**: Telemetry publishing and command subscription
 - **Optional Display**: BTT TFT35-SPI with custom cross-needle meter and touchscreen
-- **Three Build Targets**:
+- **Two Build Targets**:
   - `esp32-display`: Full unit with touchscreen (shack controller)
-  - `esp32-remote`: Headless unit for remote tuner locations (connects to display unit)
-  - `esp32-nodisplay`: Headless with web UI and MQTT only
+  - `esp32-remote`: Headless unit (web UI, MQTT, optional remote client capability)
 - **Zero-Config Setup**: WiFi captive portal + web-based configuration — no recompiling needed
 - **Security**: HTTP Basic Auth, rate limiting, login lockout
 
@@ -84,8 +83,7 @@ esptool.py --chip esp32 --port /dev/ttyUSB0 write_flash 0x0 ldg-tuner-display.bi
 pip install platformio
 
 pio run -e esp32-display -t upload   # Display unit
-pio run -e esp32-remote -t upload    # Remote unit
-pio run -e esp32-nodisplay -t upload # Basic unit
+pio run -e esp32-remote -t upload    # Remote/headless unit
 pio device monitor                   # Serial console
 ```
 
@@ -285,19 +283,19 @@ This device will inevitably be exposed to networks by people who shouldn't. Defe
 
 ## Build Matrix
 
-| | `esp32-display` | `esp32-remote` | `esp32-nodisplay` |
-|---|---|---|---|
-| RAM | ~118KB (36%) | ~48KB (15%) | ~48KB (15%) |
-| Flash | ~1.1MB (63%) | ~960KB (52%) | ~960KB (52%) |
-| Touchscreen | Yes | No | No |
-| Web UI | Yes | No | Yes |
-| MQTT | Yes | Yes | Yes |
-| Remote Link | Server | Client | No |
+| | `esp32-display` | `esp32-remote` |
+|---|---|---|
+| RAM | ~118KB (36%) | ~48KB (15%) |
+| Flash | ~1.1MB (63%) | ~960KB (52%) |
+| Touchscreen | Yes | No |
+| Web UI | Yes | Yes |
+| MQTT | Yes | Yes |
+| Remote Link | Server | Optional Client |
 
 ## CI/CD
 
 This project uses GitHub Actions for automated builds:
-- Every push to `main` builds all three firmware variants
+- Every push to `main` builds both firmware variants
 - Tags (e.g., `v1.0.0`) create a GitHub Release with pre-built binaries
 - The `main` branch deploys the web flasher to GitHub Pages
 
