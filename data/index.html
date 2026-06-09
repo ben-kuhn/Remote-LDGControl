@@ -268,6 +268,13 @@
         .toast.success { border-color: var(--accent-green); }
         .toast.error { border-color: var(--accent-red); }
 
+        .ant-btn { flex: 1; display: flex; flex-direction: column;
+                   align-items: center; padding: 0.5rem 0.25rem; }
+        .ant-btn .ant-hw { font-size: 0.65rem; opacity: 0.7; letter-spacing: 0.05em; }
+        .ant-btn .ant-label { font-size: 0.9rem; font-weight: 600; }
+        .ant-btn.active { background: var(--accent-green); color: #000; opacity: 1; }
+        .ant-btn.inactive { background: #1f2937; color: #6b7280; opacity: 0.6; }
+
         @media (max-width: 550px) {
             #tab-control.active { flex-direction: column; }
             .meter-panel { order: 1; }
@@ -309,12 +316,20 @@
             <div class="control-panel">
                 <div class="status-bar">
                     <div class="status-row"><span>Mode</span><span id="modeValue">--</span></div>
-                    <div class="status-row"><span>Antenna</span><span id="antValue">--</span></div>
                 </div>
                 <div class="button-stack">
                     <button class="btn btn-red" onclick="sendCommand('memory_tune')">Mem Tune</button>
                     <button class="btn btn-red" onclick="sendCommand('full_tune')">Full Tune</button>
-                    <button class="btn btn-blue" onclick="sendCommand('toggle')">Toggle Ant</button>
+                    <div class="form-row" style="gap:0.5rem;margin-bottom:0.35rem;">
+                        <button class="btn ant-btn" id="btnAnt1" onclick="selectAntenna(1)">
+                            <span class="ant-hw">ANT 1</span>
+                            <span class="ant-label" id="ant1Label">ANT 1</span>
+                        </button>
+                        <button class="btn ant-btn" id="btnAnt2" onclick="selectAntenna(2)">
+                            <span class="ant-hw">ANT 2</span>
+                            <span class="ant-label" id="ant2Label">ANT 2</span>
+                        </button>
+                    </div>
                     <button class="btn btn-orange" onclick="sendCommand('bypass')">Bypass</button>
                     <button class="btn btn-blue" onclick="sendCommand('auto')">Auto Mode</button>
                 </div>
@@ -690,6 +705,21 @@
             drawMeter();
         });
 
+        let activeAntenna = 0; // 0=unknown, 1=ANT1, 2=ANT2
+
+        function selectAntenna(ant) {
+            if (ant === activeAntenna) return;
+            sendCommand('toggle');
+        }
+
+        function updateAntennaButtons(antenna) {
+            activeAntenna = antenna;
+            const b1 = document.getElementById('btnAnt1');
+            const b2 = document.getElementById('btnAnt2');
+            b1.className = 'btn ant-btn ' + (antenna === 1 ? 'active' : (antenna === 2 ? 'inactive' : ''));
+            b2.className = 'btn ant-btn ' + (antenna === 2 ? 'active' : (antenna === 1 ? 'inactive' : ''));
+        }
+
         function updateMeter(data) {
             meterState.fwdPower = data.fwd_power || 0;
             meterState.refPower = data.ref_power || 0;
@@ -704,8 +734,7 @@
                 document.getElementById('modeValue').textContent = modes[data.mode] || '--';
             }
             if (data.antenna !== undefined) {
-                const ants = { 0: '--', 1: 'A', 2: 'B' };
-                document.getElementById('antValue').textContent = ants[data.antenna] || '--';
+                updateAntennaButtons(data.antenna);
             }
 
             drawMeter();
@@ -762,6 +791,8 @@
                 if (data.meterPsuVoltage) document.getElementById('psuVoltage').value = data.meterPsuVoltage;
                 if (data.ant1Name) document.getElementById('ant1Name').value = data.ant1Name;
                 if (data.ant2Name) document.getElementById('ant2Name').value = data.ant2Name;
+                if (data.ant1Name) document.getElementById('ant1Label').textContent = data.ant1Name;
+                if (data.ant2Name) document.getElementById('ant2Label').textContent = data.ant2Name;
                 if (data.wifiSSID) document.getElementById('ssid').value = data.wifiSSID;
                 document.getElementById('useStaticIP').checked = !!data.useStaticIP;
                 toggleStaticIP();
