@@ -27,9 +27,6 @@ public:
     // SSE: push status event
     void pushStatusEvent(const char* status);
 
-    // SSE: push command event to remote unit clients
-    void pushCommandEvent(uint8_t cmd);
-
     // Accessors for the static handler functions (which receive a raw
     // HTTPRequest/HTTPResponse and need to reach back into instance state).
     TunerProtocol* getTuner() { return m_tuner; }

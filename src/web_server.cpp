@@ -30,12 +30,10 @@ struct SseState {
     char meterJson[384];
     uint32_t statusSeq;
     char statusJson[96];
-    uint32_t commandSeq;
-    uint8_t  commandValue;
 };
 static SseState s_sse = {
     portMUX_INITIALIZER_UNLOCKED,
-    0, "", 0, "", 0, 0
+    0, "", 0, ""
 };
 
 // ---------------------------------------------------------------------------
@@ -173,10 +171,23 @@ static void h_config_get(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
     doc["meterPsuVoltage"] = cfg.meterPsuVoltage;
     doc["ant1Name"]        = cfg.ant1Name;
     doc["ant2Name"]        = cfg.ant2Name;
-    doc["remoteUnitId"]    = cfg.remoteUnitId;
     doc["configured"]      = cfg.configured;
+    doc["useStaticIP"]     = cfg.useStaticIP;
+    doc["staticIP"]        = cfg.staticIP;
+    doc["staticNetmask"]   = cfg.staticNetmask;
+    doc["staticGateway"]   = cfg.staticGateway;
+    doc["staticDNS"]       = cfg.staticDNS;
+    doc["currentIP"]       = WiFi.localIP().toString();
+    doc["currentNetmask"]  = WiFi.subnetMask().toString();
+    doc["currentGateway"]  = WiFi.gatewayIP().toString();
+    doc["currentDNS"]      = WiFi.dnsIP().toString();
     doc["wifiSSID"]        = WiFi.SSID();
-    doc["wifiIP"]          = WiFi.localIP().toString();
+#ifdef WITH_DISPLAY
+    doc["remoteHost"]      = cfg.remoteHost;
+    doc["build"]           = "display";
+#else
+    doc["build"]           = "remote";
+#endif
     String out;
     serializeJson(doc, out);
     sendJson(res, 200, out);
@@ -208,7 +219,14 @@ static void h_config_post(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
     if (doc["meterPsuVoltage"]) cfg.meterPsuVoltage = doc["meterPsuVoltage"];
     if (doc["ant1Name"])        strncpy(cfg.ant1Name, doc["ant1Name"], sizeof(cfg.ant1Name) - 1);
     if (doc["ant2Name"])        strncpy(cfg.ant2Name, doc["ant2Name"], sizeof(cfg.ant2Name) - 1);
-    if (doc["remoteUnitId"])    cfg.remoteUnitId    = doc["remoteUnitId"];
+    if (doc["useStaticIP"].is<bool>())  cfg.useStaticIP = doc["useStaticIP"];
+    if (doc["staticIP"].is<const char*>())      strncpy(cfg.staticIP,      doc["staticIP"],      sizeof(cfg.staticIP)      - 1);
+    if (doc["staticNetmask"].is<const char*>()) strncpy(cfg.staticNetmask, doc["staticNetmask"], sizeof(cfg.staticNetmask) - 1);
+    if (doc["staticGateway"].is<const char*>()) strncpy(cfg.staticGateway, doc["staticGateway"], sizeof(cfg.staticGateway) - 1);
+    if (doc["staticDNS"].is<const char*>())     strncpy(cfg.staticDNS,     doc["staticDNS"],     sizeof(cfg.staticDNS)     - 1);
+#ifdef WITH_DISPLAY
+    if (doc["remoteHost"].is<const char*>())    strncpy(cfg.remoteHost, doc["remoteHost"], sizeof(cfg.remoteHost) - 1);
+#endif
     cfg.configured = true;
 
     if (configManager.update(cfg)) {
@@ -326,12 +344,11 @@ static void h_events(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
     }
 
     // Snapshot current seqs so this subscriber doesn't replay history.
-    uint32_t lastMeterSeq, lastStatusSeq, lastCommandSeq;
+    uint32_t lastMeterSeq, lastStatusSeq;
     char initMeter[sizeof(s_sse.meterJson)];
     portENTER_CRITICAL(&s_sse.mux);
     lastMeterSeq   = s_sse.meterSeq;
     lastStatusSeq  = s_sse.statusSeq;
-    lastCommandSeq = s_sse.commandSeq;
     strncpy(initMeter, s_sse.meterJson, sizeof(initMeter));
     initMeter[sizeof(initMeter) - 1] = '\0';
     portEXIT_CRITICAL(&s_sse.mux);
@@ -348,16 +365,13 @@ static void h_events(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
     int failedWrites = 0;
 
     while (failedWrites < 5) {
-        uint32_t mSeq, sSeq, cSeq;
-        uint8_t  cmdVal;
+        uint32_t mSeq, sSeq;
         char     mBuf[sizeof(s_sse.meterJson)];
         char     sBuf[sizeof(s_sse.statusJson)];
 
         portENTER_CRITICAL(&s_sse.mux);
         mSeq = s_sse.meterSeq;
         sSeq = s_sse.statusSeq;
-        cSeq = s_sse.commandSeq;
-        cmdVal = s_sse.commandValue;
         if (mSeq != lastMeterSeq) {
             strncpy(mBuf, s_sse.meterJson, sizeof(mBuf));
             mBuf[sizeof(mBuf) - 1] = '\0';
@@ -381,14 +395,6 @@ static void h_events(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
             res->print(sBuf);
             res->print("\n\n");
             lastStatusSeq = sSeq;
-        }
-        if (cSeq != lastCommandSeq) {
-            char buf[64];
-            snprintf(buf, sizeof(buf), "{\"command\":%u}", (unsigned)cmdVal);
-            written = res->print("event: command\ndata: ");
-            res->print(buf);
-            res->print("\n\n");
-            lastCommandSeq = cSeq;
         }
         if (millis() - lastKeepalive > 5000) {
             written = res->print(": keepalive\n\n");
@@ -493,9 +499,3 @@ void LdgWebServer::pushStatusEvent(const char* status) {
     portEXIT_CRITICAL(&s_sse.mux);
 }
 
-void LdgWebServer::pushCommandEvent(uint8_t cmd) {
-    portENTER_CRITICAL(&s_sse.mux);
-    s_sse.commandValue = cmd;
-    s_sse.commandSeq++;
-    portEXIT_CRITICAL(&s_sse.mux);
-}
