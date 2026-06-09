@@ -234,6 +234,13 @@ void DisplayUI::updateMeter(const tuner_meter_t* meter) {
     lv_label_set_text(m_bandLabel, buf);
 }
 
+void DisplayUI::updateNetworkInfo() {
+    if (m_ssidLabel)
+        lv_label_set_text_fmt(m_ssidLabel, "SSID: %s", WiFi.SSID().c_str());
+    if (m_ipLabel)
+        lv_label_set_text_fmt(m_ipLabel, "IP: %s", WiFi.localIP().toString().c_str());
+}
+
 void DisplayUI::updateStatus(tuner_mode_t mode, tuner_ant_t antenna) {
     switch (mode) {
         case MODE_AUTO:    lv_label_set_text(m_modeLabel, "Mode: AUTO"); break;

@@ -19,6 +19,7 @@ public:
     void loop();
     void updateMeter(const tuner_meter_t* meter);
     void updateStatus(tuner_mode_t mode, tuner_ant_t antenna);
+    void updateNetworkInfo();
 
 private:
     TFT_eSPI* m_tft;

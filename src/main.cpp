@@ -399,6 +399,10 @@ void setup() {
 
     setupWiFi();
 
+#ifdef WITH_DISPLAY
+    display.updateNetworkInfo();
+#endif
+
     const DeviceConfig& cfg = configManager.get();
 
     if (wifiConnected) {
@@ -418,7 +422,9 @@ void setup() {
     }
 
 #ifndef REMOTE_UNIT
-    webServer.begin(&tuner, executeCommand, getActiveMeter, onRemoteTelemetry);
+    if (!webServer.begin(&tuner, executeCommand, getActiveMeter, onRemoteTelemetry)) {
+        Serial.println("ERROR: web server failed to start - port 443 may still be bound");
+    }
 #endif
 
     Serial.println("=== System Ready ===");
@@ -450,6 +456,9 @@ void loop() {
             wifiConnected = true;
             Serial.println("WiFi reconnected");
             mqtt.reconnect();
+#ifdef WITH_DISPLAY
+            display.updateNetworkInfo();
+#endif
         }
     }
 
