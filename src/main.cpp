@@ -73,12 +73,12 @@ const tuner_meter_t* getActiveMeter() {
 // ============================================================
 
 void setupWiFi() {
-    String hostname = HOSTNAME_PREFIX;
-    hostname += "-";
-    hostname += WiFi.macAddress();
-    hostname.replace(":", "");
-
-    WiFi.setHostname(hostname.c_str());
+#ifdef WITH_DISPLAY
+    const char* hostname = "ldgcontrol-display";
+#else
+    const char* hostname = "ldgcontrol-remote";
+#endif
+    WiFi.setHostname(hostname);
 
     // WiFiManager handles captive portal and credential storage
     bool connected = configManager.setupWiFi();
@@ -87,8 +87,8 @@ void setupWiFi() {
         wifiConnected = true;
         Serial.printf("\nWiFi connected: %s\n", WiFi.localIP().toString().c_str());
 
-        if (MDNS.begin(hostname.c_str())) {
-            Serial.printf("mDNS responder started: %s.local\n", hostname.c_str());
+        if (MDNS.begin(hostname)) {
+            Serial.printf("mDNS responder started: %s.local\n", hostname);
             MDNS.addService("http", "tcp", HTTP_PORT);
         }
     } else {

@@ -324,6 +324,15 @@ bool ConfigManager::setupWiFi() {
     if (m_config.configured && m_config.wifiSSID[0] != '\0') {
         Serial.printf("Attempting to connect to saved network: %s\n", m_config.wifiSSID);
         WiFi.mode(WIFI_STA);
+        if (m_config.useStaticIP && m_config.staticIP[0] != '\0') {
+            IPAddress ip, mask, gw, dns;
+            ip.fromString(m_config.staticIP);
+            mask.fromString(m_config.staticNetmask);
+            gw.fromString(m_config.staticGateway);
+            dns.fromString(m_config.staticDNS);
+            WiFi.config(ip, gw, mask, dns);
+            Serial.printf("Static IP configured: %s\n", m_config.staticIP);
+        }
         WiFi.begin(m_config.wifiSSID, m_config.wifiPassword);
         uint32_t start = millis();
         while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
@@ -369,14 +378,10 @@ bool ConfigManager::setupWiFi() {
             // all connections close).
             delay(3000);
             stopPortalServer();
-#ifndef WITH_DISPLAY
-            // Drop the softAP — only display units need to keep the AP up to
-            // serve the remote-unit link. Reconfiguration after this point
-            // happens via a reset (POST /api/config {"reset":true} or NVS
-            // wipe) which boots back into the portal flow.
+            // Drop the softAP — the AP was only needed for the portal.
+            // Both builds operate purely on the infrastructure network.
             WiFi.softAPdisconnect(true);
             WiFi.mode(WIFI_STA);
-#endif
             return true;
         }
 
