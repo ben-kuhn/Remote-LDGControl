@@ -503,12 +503,17 @@
             // Draw SWR curves first (behind needles)
             drawSWRCurves(cx, cy, radius);
 
-            // Scale arc — upper semicircle from LEFT (φ=π) through TOP
-            // (φ=3π/2) to RIGHT (φ=2π).
-            ctx.strokeStyle = '#555';
+            // Forward arc: left (φ=π, zero) → top (φ=3π/2, full scale)
+            ctx.strokeStyle = 'rgba(34,197,94,0.35)';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(cx, cy, radius, Math.PI, 2 * Math.PI);
+            ctx.arc(cx, cy, radius, Math.PI, 1.5 * Math.PI);
+            ctx.stroke();
+            // Reflected arc: right (φ=2π, zero) → top (φ=3π/2, full scale), clockwise=false
+            ctx.strokeStyle = 'rgba(239,68,68,0.35)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 1.5 * Math.PI, 2 * Math.PI);
             ctx.stroke();
 
             // Two scales meet at the top: forward sweeps the LEFT half
