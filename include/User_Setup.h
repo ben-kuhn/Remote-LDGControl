@@ -9,8 +9,7 @@
 #define TFT_SCLK 18
 #define TFT_CS   5
 #define TFT_DC   15
-#define TFT_RST  26
-#define TFT_BL   32
+#define TFT_RST  -1
 
 #define LOAD_GLCD
 #define LOAD_FONT2
@@ -22,7 +21,7 @@
 
 #define SMOOTH_FONT
 
-#define SPI_FREQUENCY  40000000
+#define SPI_FREQUENCY  20000000
 #define SPI_READ_FREQUENCY  16000000
 #define SPI_TOUCH_FREQUENCY  2500000
 

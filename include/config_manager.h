@@ -14,6 +14,8 @@ struct DeviceConfig {
     char webUsername[32];
     char webPassword[64];
     float meterPsuVoltage;
+    char ant1Name[32];
+    char ant2Name[32];
     uint16_t mqttPort;
     uint8_t remoteUnitId;
     bool configured;
@@ -38,9 +40,14 @@ public:
     String portalHTML();
     String scanNetworksJSON();
 
+    // Called each iteration of the portal idle loop (replaces delay).
+    // Use this to keep hardware (display, tuner) alive while waiting for WiFi config.
+    void setPortalIdleCallback(void (*cb)()) { m_portalIdleCb = cb; }
+
 private:
     Preferences m_prefs;
     DeviceConfig m_config;
+    void (*m_portalIdleCb)() = nullptr;
 
     void loadDefaults();
     bool save();

@@ -171,6 +171,8 @@ static void h_config_get(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
     doc["mqttUsername"]    = cfg.mqttUsername;
     doc["webUsername"]     = cfg.webUsername;
     doc["meterPsuVoltage"] = cfg.meterPsuVoltage;
+    doc["ant1Name"]        = cfg.ant1Name;
+    doc["ant2Name"]        = cfg.ant2Name;
     doc["remoteUnitId"]    = cfg.remoteUnitId;
     doc["configured"]      = cfg.configured;
     doc["wifiSSID"]        = WiFi.SSID();
@@ -204,6 +206,8 @@ static void h_config_post(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
     if (doc["webUsername"])     strncpy(cfg.webUsername,  doc["webUsername"],  sizeof(cfg.webUsername)  - 1);
     if (doc["webPassword"])     strncpy(cfg.webPassword,  doc["webPassword"],  sizeof(cfg.webPassword)  - 1);
     if (doc["meterPsuVoltage"]) cfg.meterPsuVoltage = doc["meterPsuVoltage"];
+    if (doc["ant1Name"])        strncpy(cfg.ant1Name, doc["ant1Name"], sizeof(cfg.ant1Name) - 1);
+    if (doc["ant2Name"])        strncpy(cfg.ant2Name, doc["ant2Name"], sizeof(cfg.ant2Name) - 1);
     if (doc["remoteUnitId"])    cfg.remoteUnitId    = doc["remoteUnitId"];
     cfg.configured = true;
 

@@ -378,6 +378,14 @@
                     <label>Meter PSU Voltage (tuner's 12V supply)</label>
                     <input type="number" id="psuVoltage" step="0.1" value="13.8" placeholder="13.8">
                 </div>
+                <div class="form-group">
+                    <label>Antenna 1 Name</label>
+                    <input type="text" id="ant1Name" maxlength="8" placeholder="ANT 1">
+                </div>
+                <div class="form-group">
+                    <label>Antenna 2 Name</label>
+                    <input type="text" id="ant2Name" maxlength="8" placeholder="ANT 2">
+                </div>
             </div>
             <button class="btn-save" onclick="saveSettings()">Save & Restart</button>
             <button class="btn-reset" onclick="resetSettings()">Reset to Defaults</button>
@@ -713,6 +721,8 @@
                 if (data.mqttUsername) document.getElementById('mqttUser').value = data.mqttUsername;
                 if (data.webUsername) document.getElementById('webUser').value = data.webUsername;
                 if (data.meterPsuVoltage) document.getElementById('psuVoltage').value = data.meterPsuVoltage;
+                if (data.ant1Name) document.getElementById('ant1Name').value = data.ant1Name;
+                if (data.ant2Name) document.getElementById('ant2Name').value = data.ant2Name;
                 if (data.wifiSSID) document.getElementById('ssid').value = data.wifiSSID;
                 if (data.wifiIP) document.getElementById('wifiIP').value = data.wifiIP;
             } catch (err) {}
@@ -726,7 +736,9 @@
                 mqttPassword: document.getElementById('mqttPass').value,
                 webUsername: document.getElementById('webUser').value,
                 webPassword: document.getElementById('webPass').value,
-                meterPsuVoltage: parseFloat(document.getElementById('psuVoltage').value)
+                meterPsuVoltage: parseFloat(document.getElementById('psuVoltage').value),
+                ant1Name: document.getElementById('ant1Name').value,
+                ant2Name: document.getElementById('ant2Name').value
             };
 
             try {

@@ -388,7 +388,7 @@ bool ConfigManager::setupWiFi() {
                           (unsigned)ESP.getMinFreeHeap());
         }
 
-        delay(10);
+        if (m_portalIdleCb) m_portalIdleCb(); else delay(10);
     }
 }
 
@@ -414,6 +414,8 @@ void ConfigManager::loadDefaults() {
     strncpy(m_config.webUsername, WEB_AUTH_USERNAME, sizeof(m_config.webUsername) - 1);
     strncpy(m_config.webPassword, WEB_AUTH_PASSWORD, sizeof(m_config.webPassword) - 1);
     m_config.meterPsuVoltage = METER_PSU_VOLTAGE;
+    strncpy(m_config.ant1Name, "ANT 1", sizeof(m_config.ant1Name) - 1);
+    strncpy(m_config.ant2Name, "ANT 2", sizeof(m_config.ant2Name) - 1);
     m_config.mqttPort = MQTT_PORT;
     m_config.remoteUnitId = REMOTE_UNIT_ID;
     m_config.configured = false;
@@ -430,6 +432,8 @@ bool ConfigManager::save() {
     m_prefs.putString("webUsername", m_config.webUsername);
     m_prefs.putString("webPassword", m_config.webPassword);
     m_prefs.putFloat("meterPsuVoltage", m_config.meterPsuVoltage);
+    m_prefs.putString("ant1Name", m_config.ant1Name);
+    m_prefs.putString("ant2Name", m_config.ant2Name);
     m_prefs.putUShort("mqttPort", m_config.mqttPort);
     m_prefs.putUChar("remoteUnitId", m_config.remoteUnitId);
     m_prefs.putBool("configured", m_config.configured);
@@ -460,6 +464,8 @@ bool ConfigManager::load() {
     strncpy(m_config.webUsername, m_prefs.getString("webUsername", "").c_str(), sizeof(m_config.webUsername) - 1);
     strncpy(m_config.webPassword, m_prefs.getString("webPassword", "").c_str(), sizeof(m_config.webPassword) - 1);
     m_config.meterPsuVoltage = m_prefs.getFloat("meterPsuVoltage", METER_PSU_VOLTAGE);
+    strncpy(m_config.ant1Name, m_prefs.getString("ant1Name", "ANT 1").c_str(), sizeof(m_config.ant1Name) - 1);
+    strncpy(m_config.ant2Name, m_prefs.getString("ant2Name", "ANT 2").c_str(), sizeof(m_config.ant2Name) - 1);
     m_config.mqttPort = m_prefs.getUShort("mqttPort", MQTT_PORT);
     m_config.remoteUnitId = m_prefs.getUChar("remoteUnitId", REMOTE_UNIT_ID);
     m_config.configured = m_prefs.getBool("configured", false);

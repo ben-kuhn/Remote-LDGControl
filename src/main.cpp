@@ -373,14 +373,31 @@ void setup() {
         Serial.println("ERROR: portal cert init failed; HTTPS will not work");
     }
 
-    setupWiFi();
-
+    // Tuner and display are UART/SPI — no WiFi dependency. Init them early so
+    // the display is live during portal setup and for users who never use WiFi.
     Serial.println("Initializing tuner interface...");
     if (!tuner.begin(TUNER_RX_PIN, TUNER_TX_PIN, TUNER_SERIAL_BAUD)) {
         Serial.println("ERROR: Failed to initialize tuner serial");
     } else {
         Serial.println("Tuner interface ready");
     }
+
+#ifdef REMOTE_UNIT
+    tuner.setMeterCallback(nullptr);
+#else
+    tuner.setMeterCallback(onMeterUpdate);
+#endif
+
+#ifdef WITH_DISPLAY
+    Serial.println("Initializing display...");
+    display.begin(&tuner);
+    configManager.setPortalIdleCallback([]() {
+        tuner.process();
+        display.loop();
+    });
+#endif
+
+    setupWiFi();
 
     const DeviceConfig& cfg = configManager.get();
 
@@ -400,16 +417,8 @@ void setup() {
         // long enough to trip the IDLE-task watchdog.
     }
 
-#ifdef REMOTE_UNIT
-    tuner.setMeterCallback(nullptr);
-#else
-    tuner.setMeterCallback(onMeterUpdate);
+#ifndef REMOTE_UNIT
     webServer.begin(&tuner, executeCommand, getActiveMeter, onRemoteTelemetry);
-#endif
-
-#ifdef WITH_DISPLAY
-    Serial.println("Initializing display...");
-    display.begin(&tuner);
 #endif
 
     Serial.println("=== System Ready ===");

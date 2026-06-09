@@ -30,14 +30,16 @@ private:
     lv_obj_t* m_bandLabel;
     lv_obj_t* m_scaleLabel;
     lv_obj_t* m_modeLabel;
-    lv_obj_t* m_antLabel;
     lv_obj_t* m_ssidLabel;
     lv_obj_t* m_ipLabel;
 
     // Buttons
     lv_obj_t* m_btnMemTune;
     lv_obj_t* m_btnFullTune;
-    lv_obj_t* m_btnToggle;
+    lv_obj_t* m_btnAnt1;
+    lv_obj_t* m_btnAnt2;
+    lv_obj_t* m_ant1NameLabel;
+    lv_obj_t* m_ant2NameLabel;
     lv_obj_t* m_btnBypass;
     lv_obj_t* m_btnAuto;
 
@@ -47,6 +49,7 @@ private:
     float m_fwdPower;
     float m_refPower;
     float m_swr;
+    tuner_ant_t m_activeAnt;
 
     // Touch
     void setupTouch();
@@ -55,10 +58,13 @@ private:
     // Button events
     static void btnMemTuneEvent(lv_event_t* e);
     static void btnFullTuneEvent(lv_event_t* e);
-    static void btnToggleEvent(lv_event_t* e);
+    static void btnAnt1Event(lv_event_t* e);
+    static void btnAnt2Event(lv_event_t* e);
     static void btnBypassEvent(lv_event_t* e);
     static void btnAutoEvent(lv_event_t* e);
     static void meterTapEvent(lv_event_t* e);
+
+    void updateAntButtons();
 
     // Custom meter drawing
     static void drawMeterEvent(lv_event_t* e);

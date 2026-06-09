@@ -48,12 +48,12 @@ See [WIRING.md](WIRING.md) for complete details. Quick reference:
 | Display SCLK | GPIO 18 | Shared SPI bus |
 | Display CS | GPIO 5 | Display chip select |
 | Display DC | GPIO 15 | Data/command |
-| Display RST | GPIO 26 | Reset |
-| Display BL | GPIO 32 | Backlight |
 | Touch SDA | GPIO 21 | I2C data (NS2009) |
 | Touch SCL | GPIO 22 | I2C clock (NS2009) |
 | Touch IRQ | GPIO 39 | Touch interrupt |
 | Voltage Sense | GPIO 34 | ADC, 100k/22k divider (optional) |
+
+RST and backlight are handled internally by the BTT TFT35-SPI V2.1 board — no external drive lines needed.
 
 **Serial**: 38400 baud, 8N1, TTL (5V). Not RS-232.
 

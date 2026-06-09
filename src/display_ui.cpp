@@ -1,6 +1,7 @@
 #ifdef WITH_DISPLAY
 
 #include "display_ui.h"
+#include "config_manager.h"
 #include <WiFi.h>
 #include <Wire.h>
 #include <math.h>
@@ -36,12 +37,15 @@ DisplayUI::DisplayUI()
     : m_tft(nullptr), m_tuner(nullptr),
       m_scr(nullptr), m_meter(nullptr),
       m_bandLabel(nullptr), m_scaleLabel(nullptr),
-      m_modeLabel(nullptr), m_antLabel(nullptr),
+      m_modeLabel(nullptr),
       m_ssidLabel(nullptr), m_ipLabel(nullptr),
       m_btnMemTune(nullptr), m_btnFullTune(nullptr),
-      m_btnToggle(nullptr), m_btnBypass(nullptr), m_btnAuto(nullptr),
+      m_btnAnt1(nullptr), m_btnAnt2(nullptr),
+      m_ant1NameLabel(nullptr), m_ant2NameLabel(nullptr),
+      m_btnBypass(nullptr), m_btnAuto(nullptr),
       m_highScale(true), m_maxPower(1000.0f),
-      m_fwdPower(0), m_refPower(0), m_swr(1.0f) {
+      m_fwdPower(0), m_refPower(0), m_swr(1.0f),
+      m_activeAnt(ANT_UNKNOWN) {
     s_instance = this;
 }
 
@@ -60,7 +64,7 @@ bool DisplayUI::begin(TunerProtocol* tuner) {
     lv_init();
     Wire.begin(TOUCH_SDA, TOUCH_SCL);
 
-    lv_disp_draw_buf_t draw_buf;
+    static lv_disp_draw_buf_t draw_buf;
     // 5-line draw buffers (~4.8 KB each). LVGL recommends ~1/10 of the
     // screen height as the minimum; halving from 10 lines keeps perf
     // reasonable while saving ~9.6 KB of dram0.bss — the difference
@@ -69,7 +73,7 @@ bool DisplayUI::begin(TunerProtocol* tuner) {
     static lv_color_t buf2[DISPLAY_WIDTH * 5];
     lv_disp_draw_buf_init(&draw_buf, buf1, buf2, DISPLAY_WIDTH * 5);
 
-    lv_disp_drv_t disp_drv;
+    static lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);
     disp_drv.hor_res = DISPLAY_WIDTH;
     disp_drv.ver_res = DISPLAY_HEIGHT;
@@ -137,48 +141,78 @@ bool DisplayUI::begin(TunerProtocol* tuner) {
     lv_obj_set_style_text_font(m_modeLabel, &lv_font_montserrat_14, LV_PART_MAIN);
     lv_obj_align(m_modeLabel, LV_ALIGN_TOP_RIGHT, -5, 45);
 
-    // Antenna
-    m_antLabel = lv_label_create(m_scr);
-    lv_label_set_text(m_antLabel, "ANT: --");
-    lv_obj_set_style_text_color(m_antLabel, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_set_style_text_font(m_antLabel, &lv_font_montserrat_14, LV_PART_MAIN);
-    lv_obj_align(m_antLabel, LV_ALIGN_TOP_RIGHT, -5, 65);
-
-    // Buttons
+    // Buttons — full-width single-line buttons for tuning commands
     int btnX = rightX + 5;
     int btnW = 140;
     int btnH = 36;
-    int btnY = 95;
     int btnGap = 5;
 
-    const struct { lv_obj_t** btn; const char* label; lv_color_t color; lv_color_t pressed; } btns[] = {
-        {&m_btnMemTune,   "MEM TUNE",   lv_color_hex(0xcc3333), lv_color_hex(0xff4444)},
-        {&m_btnFullTune,  "FULL TUNE",  lv_color_hex(0xcc3333), lv_color_hex(0xff4444)},
-        {&m_btnToggle,    "TOGGLE ANT", lv_color_hex(0x2255aa), lv_color_hex(0x3366cc)},
-        {&m_btnBypass,    "BYPASS",     lv_color_hex(0xcc8800), lv_color_hex(0xffaa00)},
-        {&m_btnAuto,      "AUTO MODE",  lv_color_hex(0x2255aa), lv_color_hex(0x3366cc)},
+    auto makeBtn = [&](lv_obj_t** out, const char* label, int x, int y, int w, int h,
+                       lv_color_t bg, lv_color_t pressed) {
+        *out = lv_btn_create(m_scr);
+        lv_obj_set_size(*out, w, h);
+        lv_obj_set_pos(*out, x, y);
+        lv_obj_set_style_bg_color(*out, bg, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(*out, pressed, LV_PART_MAIN | LV_STATE_PRESSED);
+        lv_obj_set_style_radius(*out, 4, LV_PART_MAIN);
+        lv_obj_t* lbl = lv_label_create(*out);
+        lv_label_set_text(lbl, label);
+        lv_obj_center(lbl);
     };
 
-    for (int i = 0; i < 5; i++) {
-        *btns[i].btn = lv_btn_create(m_scr);
-        lv_obj_set_size(*btns[i].btn, btnW, btnH);
-        lv_obj_set_pos(*btns[i].btn, btnX, btnY);
-        lv_obj_set_style_bg_color(*btns[i].btn, btns[i].color, LV_PART_MAIN);
-        lv_obj_set_style_bg_color(*btns[i].btn, btns[i].pressed, LV_PART_MAIN | LV_STATE_PRESSED);
-        lv_obj_set_style_radius(*btns[i].btn, 4, LV_PART_MAIN);
+    // Buttons start just below the Mode label (y=45 + ~18px font height + 4px gap)
+    const int btnY0 = 67;
 
-        lv_obj_t* lbl = lv_label_create(*btns[i].btn);
-        lv_label_set_text(lbl, btns[i].label);
-        lv_obj_center(lbl);
+    makeBtn(&m_btnMemTune,  "MEM TUNE",  btnX, btnY0,              btnW, btnH,
+            lv_color_hex(0xcc3333), lv_color_hex(0xff4444));
+    makeBtn(&m_btnFullTune, "FULL TUNE", btnX, btnY0 + btnH + btnGap, btnW, btnH,
+            lv_color_hex(0xcc3333), lv_color_hex(0xff4444));
 
-        btnY += btnH + btnGap;
-    }
+    // ANT buttons — side-by-side, nearly square, two-line (identifier + configurable name)
+    // Width = (btnW - gap) / 2 = 67 each; height = 67 for near-square
+    const int antW = (btnW - btnGap) / 2;   // 67
+    const int antH = antW;                   // 67 — square
+    const int antY = btnY0 + 2 * (btnH + btnGap);
+    const DeviceConfig& cfg = configManager.get();
 
-    lv_obj_add_event_cb(m_btnMemTune, btnMemTuneEvent, LV_EVENT_CLICKED, NULL);
+    auto makeAntBtn = [&](lv_obj_t** btn, lv_obj_t** nameLabel,
+                          const char* idText, const char* name, int x) {
+        *btn = lv_btn_create(m_scr);
+        lv_obj_set_size(*btn, antW, antH);
+        lv_obj_set_pos(*btn, x, antY);
+        lv_obj_set_style_bg_color(*btn, lv_color_hex(0x2a2a3a), LV_PART_MAIN);
+        lv_obj_set_style_radius(*btn, 4, LV_PART_MAIN);
+        lv_obj_set_style_pad_all(*btn, 2, LV_PART_MAIN);
+
+        lv_obj_t* id = lv_label_create(*btn);
+        lv_label_set_text(id, idText);
+        lv_obj_set_style_text_font(id, &lv_font_montserrat_14, LV_PART_MAIN);
+        lv_obj_align(id, LV_ALIGN_TOP_MID, 0, 4);
+
+        *nameLabel = lv_label_create(*btn);
+        lv_label_set_text(*nameLabel, name);
+        lv_obj_set_style_text_font(*nameLabel, &lv_font_montserrat_10, LV_PART_MAIN);
+        lv_obj_set_style_text_color(*nameLabel, lv_color_hex(0xaaaaaa), LV_PART_MAIN);
+        lv_label_set_long_mode(*nameLabel, LV_LABEL_LONG_CLIP);
+        lv_obj_set_width(*nameLabel, antW - 4);
+        lv_obj_set_style_text_align(*nameLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+        lv_obj_align(*nameLabel, LV_ALIGN_BOTTOM_MID, 0, -4);
+    };
+
+    makeAntBtn(&m_btnAnt1, &m_ant1NameLabel, "ANT 1", cfg.ant1Name, btnX);
+    makeAntBtn(&m_btnAnt2, &m_ant2NameLabel, "ANT 2", cfg.ant2Name, btnX + antW + btnGap);
+
+    makeBtn(&m_btnBypass, "BYPASS",    btnX, antY + antH + btnGap, btnW, btnH,
+            lv_color_hex(0xcc8800), lv_color_hex(0xffaa00));
+    makeBtn(&m_btnAuto,   "AUTO MODE", btnX, antY + antH + btnGap + btnH + btnGap, btnW, btnH,
+            lv_color_hex(0x2255aa), lv_color_hex(0x3366cc));
+
+    lv_obj_add_event_cb(m_btnMemTune,  btnMemTuneEvent,  LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(m_btnFullTune, btnFullTuneEvent, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(m_btnToggle, btnToggleEvent, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(m_btnBypass, btnBypassEvent, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(m_btnAuto, btnAutoEvent, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(m_btnAnt1,     btnAnt1Event,     LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(m_btnAnt2,     btnAnt2Event,     LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(m_btnBypass,   btnBypassEvent,   LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(m_btnAuto,     btnAutoEvent,     LV_EVENT_CLICKED, NULL);
 
     return true;
 }
@@ -207,11 +241,21 @@ void DisplayUI::updateStatus(tuner_mode_t mode, tuner_ant_t antenna) {
         case MODE_BYPASS:  lv_label_set_text(m_modeLabel, "Mode: BYPASS"); break;
         default:           lv_label_set_text(m_modeLabel, "Mode: --"); break;
     }
-    switch (antenna) {
-        case ANT_A: lv_label_set_text(m_antLabel, "ANT: A"); break;
-        case ANT_B: lv_label_set_text(m_antLabel, "ANT: B"); break;
-        default:    lv_label_set_text(m_antLabel, "ANT: --"); break;
-    }
+    m_activeAnt = antenna;
+    updateAntButtons();
+}
+
+void DisplayUI::updateAntButtons() {
+    const DeviceConfig& cfg = configManager.get();
+    lv_label_set_text(m_ant1NameLabel, cfg.ant1Name);
+    lv_label_set_text(m_ant2NameLabel, cfg.ant2Name);
+
+    lv_color_t activeColor   = lv_color_hex(0x2255aa);
+    lv_color_t inactiveColor = lv_color_hex(0x2a2a3a);
+    lv_obj_set_style_bg_color(m_btnAnt1,
+        m_activeAnt == ANT_A ? activeColor : inactiveColor, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(m_btnAnt2,
+        m_activeAnt == ANT_B ? activeColor : inactiveColor, LV_PART_MAIN);
 }
 
 void DisplayUI::setupTouch() {
@@ -246,70 +290,121 @@ void DisplayUI::drawMeterEvent(lv_event_t* e) {
 void DisplayUI::drawCrossNeedle(lv_event_t* e) {
     lv_draw_ctx_t* draw_ctx = lv_event_get_draw_ctx(e);
     lv_obj_t* obj = lv_event_get_target(e);
-
     int w = lv_obj_get_width(obj);
     int h = lv_obj_get_height(obj);
 
-    // Geometry — mirrors data/index.html drawMeter(). Pivots sit at the
-    // bottom corners; arc spans the upper half. Forward pivot is bottom-
-    // RIGHT, reflected is bottom-LEFT (matches CLAUDE.md convention).
-    const int pad   = 20;
-    const int cx    = w / 2;
-    const int cy    = h - pad;
-    const int radius = w / 2 - pad;
-    const float PI_F = 3.14159265f;
+    const int pad      = 20;
+    const int cx       = w / 2;
+    const int cy       = h - pad;          // pivot row, bottom of meter area
+    const int halfBase = w / 2 - pad;      // horizontal distance from centre to each pivot
+    const int arm      = cy - pad;         // needle length = arc radius; arm > halfBase → arcs cross
+    const float PI_F   = 3.14159265f;
 
-    // Pivot positions
-    const int fwdPx = cx + radius;  // bottom-right
+    // Pivot positions: forward bottom-right, reflected bottom-left.
+    // With arm == 2*halfBase (true when meter is square) each arc passes exactly
+    // through the other pivot, giving a natural zero-power resting position.
+    const int fwdPx = cx + halfBase;
     const int fwdPy = cy;
-    const int refPx = cx - radius;  // bottom-left
+    const int refPx = cx - halfBase;
     const int refPy = cy;
 
-    auto tipOnArc = [&](float phi, int& tx, int& ty) {
-        tx = cx + (int)(radius * cosf(phi));
-        ty = cy + (int)(radius * sinf(phi));  // screen coords; sin direct
-    };
+    // Needle angles (math convention: tip_x = pivot_x + arm*cos θ,
+    //                                 tip_y = pivot_y − arm*sin θ)
+    // Forward: θ = PI  (pointing left)  at 0 W  →  θ = PI/2 (pointing up) at max W
+    // Reflected: θ = 0 (pointing right) at 0 W  →  θ = PI/2 (pointing up) at max W
+    const float fwdFrac  = fminf(m_fwdPower / m_maxPower, 1.0f);
+    const float refFrac  = fminf(m_refPower  / m_maxPower, 1.0f);
+    const float fwdTheta = PI_F - fwdFrac * (PI_F / 2.0f);
+    const float refTheta = refFrac * (PI_F / 2.0f);
+    const int fwdTx = fwdPx + (int)(arm * cosf(fwdTheta));
+    const int fwdTy = fwdPy - (int)(arm * sinf(fwdTheta));
+    const int refTx = refPx + (int)(arm * cosf(refTheta));
+    const int refTy = refPy - (int)(arm * sinf(refTheta));
 
-    // ----- Scale arc -----
+    // ----- Scale arcs (one per pivot, each spanning the full 90° sweep) -----
+    // Forward arc: upper-left quarter around fwd pivot (LVGL 180° → 270°, clockwise = left→up)
+    // Reflected arc: upper-right quarter around ref pivot (LVGL 270° → 360°, clockwise = up→right)
     lv_draw_arc_dsc_t arc_dsc;
     lv_draw_arc_dsc_init(&arc_dsc);
-    arc_dsc.color = lv_color_hex(0x555555);
     arc_dsc.width = 2;
-    lv_point_t arc_center = {(lv_coord_t)cx, (lv_coord_t)cy};
-    lv_draw_arc(draw_ctx, &arc_dsc, &arc_center, radius, 180, 360);
+    arc_dsc.color = lv_color_hex(0x22c55e);
+    lv_point_t fwd_ctr = {(lv_coord_t)fwdPx, (lv_coord_t)fwdPy};
+    lv_draw_arc(draw_ctx, &arc_dsc, &fwd_ctr, arm, 180, 270);
+    arc_dsc.color = lv_color_hex(0xef4444);
+    lv_point_t ref_ctr = {(lv_coord_t)refPx, (lv_coord_t)refPy};
+    lv_draw_arc(draw_ctx, &arc_dsc, &ref_ctr, arm, 270, 360);
 
-    // ----- SWR curves (drawn behind needles) -----
-    static const float swrValues[]   = { 1.5f, 2.0f, 3.0f, 5.0f, 10.0f };
-    static const uint32_t swrColors[] = { 0x84cc16, 0xeab308, 0xf97316, 0xef4444, 0xa855f7 };
-    const int swrCount = sizeof(swrValues) / sizeof(swrValues[0]);
+    // ----- Tick marks + labels along each arc -----
+    // thetaZero = needle angle at 0 W, thetaFull = angle at max W
+    auto drawTicks = [&](int px, int py, float thetaZero, float thetaFull, uint32_t color) {
+        const int N = 8;
+        for (int i = 0; i <= N; i++) {
+            const float f     = (float)i / (float)N;
+            const float theta = thetaZero + f * (thetaFull - thetaZero);
+            const float c = cosf(theta), s = sinf(theta);
+            const bool major   = (i % 2 == 0);
+            const int  tickLen = major ? 10 : 5;
+            lv_point_t p1 = {(lv_coord_t)(px + (int)(c * arm)),
+                             (lv_coord_t)(py - (int)(s * arm))};
+            lv_point_t p2 = {(lv_coord_t)(px + (int)(c * (arm - tickLen))),
+                             (lv_coord_t)(py - (int)(s * (arm - tickLen)))};
+            lv_draw_line_dsc_t tick_dsc;
+            lv_draw_line_dsc_init(&tick_dsc);
+            tick_dsc.color = major ? lv_color_hex(color) : lv_color_hex(0x666666);
+            tick_dsc.width = major ? 2 : 1;
+            lv_draw_line(draw_ctx, &tick_dsc, &p1, &p2);
+            if (major && i > 0) {
+                char buf[8];
+                snprintf(buf, sizeof(buf), "%d", (int)(f * m_maxPower));
+                lv_draw_label_dsc_t ld;
+                lv_draw_label_dsc_init(&ld);
+                ld.color = lv_color_hex(color);
+                ld.font  = &lv_font_montserrat_14;
+                ld.align = LV_TEXT_ALIGN_CENTER;
+                const int lr = arm - tickLen - 12;
+                const int lx = px + (int)(c * lr);
+                const int ly = py - (int)(s * lr);
+                lv_area_t la = {(lv_coord_t)(lx-16),(lv_coord_t)(ly-8),
+                                (lv_coord_t)(lx+16),(lv_coord_t)(ly+8)};
+                lv_draw_label(draw_ctx, &ld, &la, buf, NULL);
+            }
+        }
+    };
+    drawTicks(fwdPx, fwdPy, PI_F, PI_F/2.0f, 0x22c55e);  // forward
+    drawTicks(refPx, refPy, 0.0f, PI_F/2.0f, 0xef4444);  // reflected
+
+    // ----- SWR iso-curves -----
+    // Each curve traces the geometric intersection of the two needle lines as
+    // power varies at a fixed SWR (constant reflection coefficient Γ²).
+    // Intersection formula (both pivots share the same y = cy):
+    //   t_f = base2 * sin(thR) / (arm * sin(thF − thR))
+    //   crossing = fwd_pivot + t_f * arm * (cos thF, −sin thF)
+    static const float    swrValues[] = {1.5f, 2.0f, 3.0f, 5.0f, 10.0f};
+    static const uint32_t swrColors[] = {0x84cc16, 0xeab308, 0xf97316, 0xef4444, 0xa855f7};
     lv_draw_line_dsc_t curve_dsc;
     lv_draw_line_dsc_init(&curve_dsc);
     curve_dsc.width = 1;
-    curve_dsc.opa = LV_OPA_60;
-    for (int si = 0; si < swrCount; si++) {
+    curve_dsc.opa   = LV_OPA_60;
+    const float base2 = (float)(fwdPx - refPx);
+    for (int si = 0; si < 5; si++) {
         const float swr = swrValues[si];
-        const float gamma = (swr - 1.0f) / (swr + 1.0f);
-        const float gammaSq = gamma * gamma;
+        const float g   = (swr - 1.0f) / (swr + 1.0f);
+        const float g2  = g * g;
         curve_dsc.color = lv_color_hex(swrColors[si]);
         bool havePrev = false;
         int prevX = 0, prevY = 0;
-        for (int i = 1; i <= 40; i++) {
-            const float fwdFrac = (float)i / 40.0f;
-            const float refFrac = fwdFrac * gammaSq;
-            if (refFrac > 1.0f) continue;
-            const float fwdPhi = PI_F + fwdFrac * (PI_F / 2.0f);
-            const float refPhi = 2.0f * PI_F - refFrac * (PI_F / 2.0f);
-            int fwdTx, fwdTy, refTx, refTy;
-            tipOnArc(fwdPhi, fwdTx, fwdTy);
-            tipOnArc(refPhi, refTx, refTy);
-            // Intersection of (fwdPx,fwdPy)-(fwdTx,fwdTy) and (refPx,refPy)-(refTx,refTy)
-            const float dx1 = fwdTx - fwdPx, dy1 = fwdTy - fwdPy;
-            const float dx2 = refTx - refPx, dy2 = refTy - refPy;
-            const float denom = dx1 * dy2 - dy1 * dx2;
-            if (fabsf(denom) < 0.001f) continue;
-            const float t = ((refPx - fwdPx) * dy2 - (refPy - fwdPy) * dx2) / denom;
-            const int ix = fwdPx + (int)(t * dx1);
-            const int iy = fwdPy + (int)(t * dy1);
+        for (int k = 1; k <= 40; k++) {
+            const float ff  = (float)k / 40.0f;
+            const float rf  = fminf(g2 * ff, 1.0f);
+            const float thF = PI_F - ff * (PI_F / 2.0f);
+            const float thR = rf  * (PI_F / 2.0f);
+            const float sinR = sinf(thR);
+            const float sinD = sinf(thF - thR);
+            if (fabsf(sinD) < 0.001f || fabsf(sinR) < 0.001f) { havePrev = false; continue; }
+            const float tf = base2 * sinR / ((float)arm * sinD);
+            if (tf < 0.0f || tf > 1.05f) { havePrev = false; continue; }
+            const int ix = fwdPx + (int)(tf * (float)arm * cosf(thF));
+            const int iy = fwdPy - (int)(tf * (float)arm * sinf(thF));
             if (havePrev) {
                 lv_point_t p1 = {(lv_coord_t)prevX, (lv_coord_t)prevY};
                 lv_point_t p2 = {(lv_coord_t)ix,    (lv_coord_t)iy};
@@ -319,109 +414,45 @@ void DisplayUI::drawCrossNeedle(lv_event_t* e) {
         }
     }
 
-    // ----- Tick marks + labels for the two scales -----
-    auto drawScale = [&](float phiZero, float phiFull, uint32_t color) {
-        const int N = 8;
-        for (int i = 0; i <= N; i++) {
-            const float f = (float)i / (float)N;
-            const float phi = phiZero + (phiFull - phiZero) * f;
-            const float cos_a = cosf(phi);
-            const float sin_a = sinf(phi);
-            const bool major = (i % 2 == 0);
-            const int tickLen = major ? 10 : 5;
-            lv_point_t p1 = {(lv_coord_t)(cx + (int)(cos_a * (radius + 2))),
-                             (lv_coord_t)(cy + (int)(sin_a * (radius + 2)))};
-            lv_point_t p2 = {(lv_coord_t)(cx + (int)(cos_a * (radius + 2 + tickLen))),
-                             (lv_coord_t)(cy + (int)(sin_a * (radius + 2 + tickLen)))};
-            lv_draw_line_dsc_t tick_dsc;
-            lv_draw_line_dsc_init(&tick_dsc);
-            tick_dsc.color = major ? lv_color_hex(color) : lv_color_hex(0x666666);
-            tick_dsc.width = major ? 2 : 1;
-            lv_draw_line(draw_ctx, &tick_dsc, &p1, &p2);
-            if (major && i < N) {
-                int val = (int)(f * m_maxPower);
-                char buf[8];
-                snprintf(buf, sizeof(buf), "%d", val);
-                lv_draw_label_dsc_t label_dsc;
-                lv_draw_label_dsc_init(&label_dsc);
-                label_dsc.color = lv_color_hex(color);
-                label_dsc.font = &lv_font_montserrat_14;
-                label_dsc.align = LV_TEXT_ALIGN_CENTER;
-                int lx = cx + (int)(cos_a * (radius - 16));
-                int ly = cy + (int)(sin_a * (radius - 16));
-                lv_area_t label_area = {(lv_coord_t)(lx - 16), (lv_coord_t)(ly - 8),
-                                         (lv_coord_t)(lx + 16), (lv_coord_t)(ly + 8)};
-                lv_draw_label(draw_ctx, &label_dsc, &label_area, buf, NULL);
-            }
-        }
-    };
-    drawScale(PI_F,         1.5f * PI_F, 0x22c55e);  // forward, left-half
-    drawScale(2.0f * PI_F,  1.5f * PI_F, 0xef4444);  // reflected, right-half
-
-    // Shared max-scale label above the apex
-    {
-        char buf[8];
-        snprintf(buf, sizeof(buf), "%d", (int)m_maxPower);
-        lv_draw_label_dsc_t label_dsc;
-        lv_draw_label_dsc_init(&label_dsc);
-        label_dsc.color = lv_color_hex(0xcccccc);
-        label_dsc.font = &lv_font_montserrat_14;
-        label_dsc.align = LV_TEXT_ALIGN_CENTER;
-        lv_area_t a = {(lv_coord_t)(cx - 22), (lv_coord_t)(cy - radius - 18),
-                       (lv_coord_t)(cx + 22), (lv_coord_t)(cy - radius - 2)};
-        lv_draw_label(draw_ctx, &label_dsc, &a, buf, NULL);
-    }
-
-    // ----- Needles (tip on arc) -----
-    const float fwdFrac = fminf(m_fwdPower / m_maxPower, 1.0f);
-    const float refFrac = fminf(m_refPower / m_maxPower, 1.0f);
-    const float fwdPhi  = PI_F + fwdFrac * (PI_F / 2.0f);
-    const float refPhi  = 2.0f * PI_F - refFrac * (PI_F / 2.0f);
-    int fwdTx, fwdTy, refTx, refTy;
-    tipOnArc(fwdPhi, fwdTx, fwdTy);
-    tipOnArc(refPhi, refTx, refTy);
-
+    // ----- Needles -----
     lv_draw_line_dsc_t needle_dsc;
     lv_draw_line_dsc_init(&needle_dsc);
-    needle_dsc.width = 3;
+    needle_dsc.width     = 3;
     needle_dsc.round_end = true;
-
     needle_dsc.color = lv_color_hex(0x00ff00);
-    lv_point_t fwdStart = {(lv_coord_t)fwdPx, (lv_coord_t)fwdPy};
-    lv_point_t fwdEnd   = {(lv_coord_t)fwdTx, (lv_coord_t)fwdTy};
-    lv_draw_line(draw_ctx, &needle_dsc, &fwdStart, &fwdEnd);
-
+    { lv_point_t p1={(lv_coord_t)fwdPx,(lv_coord_t)fwdPy},
+                 p2={(lv_coord_t)fwdTx,(lv_coord_t)fwdTy};
+      lv_draw_line(draw_ctx, &needle_dsc, &p1, &p2); }
     needle_dsc.color = lv_color_hex(0xff0000);
-    lv_point_t refStart = {(lv_coord_t)refPx, (lv_coord_t)refPy};
-    lv_point_t refEnd   = {(lv_coord_t)refTx, (lv_coord_t)refTy};
-    lv_draw_line(draw_ctx, &needle_dsc, &refStart, &refEnd);
+    { lv_point_t p1={(lv_coord_t)refPx,(lv_coord_t)refPy},
+                 p2={(lv_coord_t)refTx,(lv_coord_t)refTy};
+      lv_draw_line(draw_ctx, &needle_dsc, &p1, &p2); }
 
-    // ----- Pivot dots on top of needles -----
-    lv_draw_rect_dsc_t rect_dsc;
-    lv_draw_rect_dsc_init(&rect_dsc);
-    rect_dsc.radius = LV_RADIUS_CIRCLE;
-    rect_dsc.bg_color = lv_color_hex(0x00aa00);
-    lv_area_t fwdPivot = {(lv_coord_t)(fwdPx - 5), (lv_coord_t)(fwdPy - 5),
-                          (lv_coord_t)(fwdPx + 5), (lv_coord_t)(fwdPy + 5)};
-    lv_draw_rect(draw_ctx, &rect_dsc, &fwdPivot);
-    rect_dsc.bg_color = lv_color_hex(0xaa0000);
-    lv_area_t refPivot = {(lv_coord_t)(refPx - 5), (lv_coord_t)(refPy - 5),
-                          (lv_coord_t)(refPx + 5), (lv_coord_t)(refPy + 5)};
-    lv_draw_rect(draw_ctx, &rect_dsc, &refPivot);
+    // ----- Pivot dots -----
+    lv_draw_rect_dsc_t rd;
+    lv_draw_rect_dsc_init(&rd);
+    rd.radius = LV_RADIUS_CIRCLE;
+    rd.bg_color = lv_color_hex(0x00aa00);
+    lv_area_t fa={(lv_coord_t)(fwdPx-5),(lv_coord_t)(fwdPy-5),
+                  (lv_coord_t)(fwdPx+5),(lv_coord_t)(fwdPy+5)};
+    lv_draw_rect(draw_ctx, &rd, &fa);
+    rd.bg_color = lv_color_hex(0xaa0000);
+    lv_area_t ra={(lv_coord_t)(refPx-5),(lv_coord_t)(refPy-5),
+                  (lv_coord_t)(refPx+5),(lv_coord_t)(refPy+5)};
+    lv_draw_rect(draw_ctx, &rd, &ra);
 
-    // Draw SWR indicator text in center
+    // ----- SWR text -----
     char swrBuf[16];
     snprintf(swrBuf, sizeof(swrBuf), "%.1f:1", m_swr);
     lv_draw_label_dsc_t swr_dsc;
     lv_draw_label_dsc_init(&swr_dsc);
     swr_dsc.color = (m_swr > 2.0f) ? lv_color_hex(0xff4444) :
                     (m_swr > 1.5f) ? lv_color_hex(0xffaa00) : lv_color_hex(0x00ff00);
-    swr_dsc.font = &lv_font_montserrat_24;
+    swr_dsc.font  = &lv_font_montserrat_24;
     swr_dsc.align = LV_TEXT_ALIGN_CENTER;
-
-    lv_area_t swr_area = {(lv_coord_t)(cx - 30), (lv_coord_t)(cy - radius / 2 - 12),
-                          (lv_coord_t)(cx + 30), (lv_coord_t)(cy - radius / 2 + 12)};
-    lv_draw_label(draw_ctx, &swr_dsc, &swr_area, swrBuf, NULL);
+    lv_area_t swr_a = {(lv_coord_t)(cx-30),(lv_coord_t)(cy-arm/2-12),
+                       (lv_coord_t)(cx+30),(lv_coord_t)(cy-arm/2+12)};
+    lv_draw_label(draw_ctx, &swr_dsc, &swr_a, swrBuf, NULL);
 }
 
 void DisplayUI::displayFlush(lv_disp_drv_t* disp, const lv_area_t* area, lv_color_t* color_p) {
@@ -444,8 +475,14 @@ void DisplayUI::btnFullTuneEvent(lv_event_t* e) {
     if (s_instance && s_instance->m_tuner) s_instance->m_tuner->fullTune();
 }
 
-void DisplayUI::btnToggleEvent(lv_event_t* e) {
-    if (s_instance && s_instance->m_tuner) s_instance->m_tuner->toggleAntenna();
+void DisplayUI::btnAnt1Event(lv_event_t* e) {
+    if (s_instance && s_instance->m_tuner && s_instance->m_activeAnt != ANT_A)
+        s_instance->m_tuner->toggleAntenna();
+}
+
+void DisplayUI::btnAnt2Event(lv_event_t* e) {
+    if (s_instance && s_instance->m_tuner && s_instance->m_activeAnt != ANT_B)
+        s_instance->m_tuner->toggleAntenna();
 }
 
 void DisplayUI::btnBypassEvent(lv_event_t* e) {
