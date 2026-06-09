@@ -38,10 +38,6 @@ bool MqttHandler::connect() {
     clientId += WiFi.macAddress();
     clientId.replace(":", "");
 
-#ifdef REMOTE_UNIT
-    clientId += "-remote";
-#endif
-
     bool result = m_client->connect(
         clientId.c_str(),
         MQTT_USERNAME,
@@ -56,15 +52,10 @@ bool MqttHandler::connect() {
         m_connected = true;
         m_client->subscribe(MQTT_TOPIC_CMD, MQTT_QOS);
 
-#ifndef REMOTE_UNIT
-        // Display unit subscribes to remote telemetry and commands
+        // Subscribe to remote telemetry and commands
         m_client->subscribe(MQTT_REMOTE_TELEMETRY, MQTT_QOS);
         m_client->subscribe(MQTT_REMOTE_CMD, MQTT_QOS);
         m_client->subscribe(MQTT_REMOTE_STATUS, MQTT_QOS);
-#else
-        // Remote unit subscribes to remote commands
-        m_client->subscribe(MQTT_REMOTE_CMD, MQTT_QOS);
-#endif
 
         m_client->publish(MQTT_TOPIC_STATUS, "online", true);
     }
@@ -144,7 +135,7 @@ void MqttHandler::publishRemoteTelemetry(const tuner_meter_t* meter) {
     doc["band"] = TunerProtocol::bandToString(meter->band);
     doc["fwd_raw"] = meter->forward_power_raw;
     doc["ref_raw"] = meter->reflected_power_raw;
-    doc["unit"] = REMOTE_UNIT_ID;
+    doc["unit"] = 0;
 
     String payload;
     serializeJson(doc, payload);
@@ -162,7 +153,7 @@ void MqttHandler::publishRemoteStatus(bool connected) {
 
     JsonDocument doc;
     doc["connected"] = connected;
-    doc["unit"] = REMOTE_UNIT_ID;
+    doc["unit"] = 0;
 
     String payload;
     serializeJson(doc, payload);
@@ -188,7 +179,7 @@ bool MqttHandler::sendRemoteCommand(uint8_t cmd) {
 
     JsonDocument doc;
     doc["command"] = cmd;
-    doc["unit"] = REMOTE_UNIT_ID;
+    doc["unit"] = 0;
 
     String payload;
     serializeJson(doc, payload);

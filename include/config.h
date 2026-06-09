@@ -103,14 +103,6 @@
 #define MQTT_TLS_FINGERPRINT    ""  // SHA1 fingerprint of broker cert
 
 // ============================================================
-// Remote Unit Configuration (REMOTE_UNIT builds)
-#ifdef REMOTE_UNIT
-#define REMOTE_UNIT_ID          1
-#else
-#define REMOTE_UNIT_ID          0
-#endif
-
-// ============================================================
 // System
 // ============================================================
 #define HOSTNAME_PREFIX         "ldg-tuner"
