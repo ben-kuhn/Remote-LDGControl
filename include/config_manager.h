@@ -19,6 +19,14 @@ struct DeviceConfig {
     uint16_t mqttPort;
     uint8_t remoteUnitId;
     bool configured;
+    // Static IP (optional; DHCP used when useStaticIP is false)
+    bool useStaticIP;
+    char staticIP[16];
+    char staticNetmask[16];
+    char staticGateway[16];
+    char staticDNS[16];
+    // Display-build only: hostname/IP of remote unit to subscribe to
+    char remoteHost[64];
 };
 
 class ConfigManager {

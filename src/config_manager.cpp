@@ -419,6 +419,14 @@ void ConfigManager::loadDefaults() {
     m_config.mqttPort = MQTT_PORT;
     m_config.remoteUnitId = REMOTE_UNIT_ID;
     m_config.configured = false;
+    m_config.useStaticIP = false;
+    m_config.staticIP[0]      = '\0';
+    m_config.staticNetmask[0] = '\0';
+    m_config.staticGateway[0] = '\0';
+    m_config.staticDNS[0]     = '\0';
+    strncpy(m_config.remoteHost, "ldgcontrol-remote.local",
+            sizeof(m_config.remoteHost) - 1);
+    m_config.remoteHost[sizeof(m_config.remoteHost) - 1] = '\0';
 }
 
 bool ConfigManager::save() {
@@ -437,6 +445,12 @@ bool ConfigManager::save() {
     m_prefs.putUShort("mqttPort", m_config.mqttPort);
     m_prefs.putUChar("remoteUnitId", m_config.remoteUnitId);
     m_prefs.putBool("configured", m_config.configured);
+    m_prefs.putBool("useStaticIP",    m_config.useStaticIP);
+    m_prefs.putString("staticIP",      m_config.staticIP);
+    m_prefs.putString("staticNetmask", m_config.staticNetmask);
+    m_prefs.putString("staticGateway", m_config.staticGateway);
+    m_prefs.putString("staticDNS",     m_config.staticDNS);
+    m_prefs.putString("remoteHost",    m_config.remoteHost);
 
     m_prefs.end();
     return true;
@@ -469,6 +483,12 @@ bool ConfigManager::load() {
     m_config.mqttPort = m_prefs.getUShort("mqttPort", MQTT_PORT);
     m_config.remoteUnitId = m_prefs.getUChar("remoteUnitId", REMOTE_UNIT_ID);
     m_config.configured = m_prefs.getBool("configured", false);
+    m_config.useStaticIP = m_prefs.getBool("useStaticIP", false);
+    strncpy(m_config.staticIP,      m_prefs.getString("staticIP",      "").c_str(), sizeof(m_config.staticIP)      - 1);
+    strncpy(m_config.staticNetmask, m_prefs.getString("staticNetmask", "").c_str(), sizeof(m_config.staticNetmask) - 1);
+    strncpy(m_config.staticGateway, m_prefs.getString("staticGateway", "").c_str(), sizeof(m_config.staticGateway) - 1);
+    strncpy(m_config.staticDNS,     m_prefs.getString("staticDNS",     "").c_str(), sizeof(m_config.staticDNS)     - 1);
+    strncpy(m_config.remoteHost,    m_prefs.getString("remoteHost", "ldgcontrol-remote.local").c_str(), sizeof(m_config.remoteHost) - 1);
 
     m_prefs.end();
     return true;
