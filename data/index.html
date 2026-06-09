@@ -328,9 +328,43 @@
                     <label>Connected SSID</label>
                     <input type="text" id="ssid" readonly style="opacity: 0.7; cursor: not-allowed;">
                 </div>
-                <div class="form-group">
-                    <label>IP Address</label>
-                    <input type="text" id="wifiIP" readonly style="opacity: 0.7; cursor: not-allowed;">
+                <div class="form-row" style="align-items:center;margin-bottom:0.5rem;">
+                    <label style="margin:0;font-weight:600;">IP Mode</label>
+                    <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
+                        <input type="checkbox" id="useStaticIP" onchange="toggleStaticIP()"> Static IP
+                    </label>
+                </div>
+                <div id="staticIPFields" style="display:none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>IP Address</label>
+                            <input type="text" id="staticIP" placeholder="192.168.1.100" pattern="\d+\.\d+\.\d+\.\d+">
+                        </div>
+                        <div class="form-group">
+                            <label>Netmask</label>
+                            <input type="text" id="staticNetmask" placeholder="255.255.255.0">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Gateway</label>
+                            <input type="text" id="staticGateway" placeholder="192.168.1.1">
+                        </div>
+                        <div class="form-group">
+                            <label>DNS</label>
+                            <input type="text" id="staticDNS" placeholder="192.168.1.1">
+                        </div>
+                    </div>
+                </div>
+                <div id="dhcpInfo" style="font-size:0.75rem;color:var(--text-secondary);margin-top:0.25rem;">
+                    Current: <span id="currentIP">--</span> / <span id="currentNetmask">--</span>
+                    &nbsp;GW: <span id="currentGateway">--</span>
+                </div>
+                <div id="remoteHostGroup" style="display:none;margin-top:0.75rem;">
+                    <div class="form-group">
+                        <label>Remote Unit Host</label>
+                        <input type="text" id="remoteHost" placeholder="ldgcontrol-remote.local">
+                    </div>
                 </div>
                 <p style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.4rem;">
                     To change WiFi network, press the reset button on the device to launch the captive portal.
@@ -403,6 +437,11 @@
                 document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
             });
         });
+
+        function toggleStaticIP() {
+            const on = document.getElementById('useStaticIP').checked;
+            document.getElementById('staticIPFields').style.display = on ? '' : 'none';
+        }
 
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
@@ -724,7 +763,27 @@
                 if (data.ant1Name) document.getElementById('ant1Name').value = data.ant1Name;
                 if (data.ant2Name) document.getElementById('ant2Name').value = data.ant2Name;
                 if (data.wifiSSID) document.getElementById('ssid').value = data.wifiSSID;
-                if (data.wifiIP) document.getElementById('wifiIP').value = data.wifiIP;
+                document.getElementById('useStaticIP').checked = !!data.useStaticIP;
+                toggleStaticIP();
+                if (data.staticIP)      document.getElementById('staticIP').value      = data.staticIP;
+                if (data.staticNetmask) document.getElementById('staticNetmask').value = data.staticNetmask;
+                if (data.staticGateway) document.getElementById('staticGateway').value = data.staticGateway;
+                if (data.staticDNS)     document.getElementById('staticDNS').value     = data.staticDNS;
+                if (data.currentIP)     document.getElementById('currentIP').textContent     = data.currentIP;
+                if (data.currentNetmask)document.getElementById('currentNetmask').textContent= data.currentNetmask;
+                if (data.currentGateway)document.getElementById('currentGateway').textContent= data.currentGateway;
+                // Pre-fill static fields with DHCP values if not already set
+                if (!data.useStaticIP) {
+                    if (!data.staticIP)      document.getElementById('staticIP').value      = data.currentIP      || '';
+                    if (!data.staticNetmask) document.getElementById('staticNetmask').value = data.currentNetmask || '';
+                    if (!data.staticGateway) document.getElementById('staticGateway').value = data.currentGateway || '';
+                    if (!data.staticDNS)     document.getElementById('staticDNS').value     = data.currentDNS     || '';
+                }
+                // Show Remote Unit Host only on display build
+                if (data.build === 'display') {
+                    document.getElementById('remoteHostGroup').style.display = '';
+                    if (data.remoteHost) document.getElementById('remoteHost').value = data.remoteHost;
+                }
             } catch (err) {}
         }
 
@@ -738,7 +797,13 @@
                 webPassword: document.getElementById('webPass').value,
                 meterPsuVoltage: parseFloat(document.getElementById('psuVoltage').value),
                 ant1Name: document.getElementById('ant1Name').value,
-                ant2Name: document.getElementById('ant2Name').value
+                ant2Name: document.getElementById('ant2Name').value,
+                useStaticIP:    document.getElementById('useStaticIP').checked,
+                staticIP:       document.getElementById('staticIP').value,
+                staticNetmask:  document.getElementById('staticNetmask').value,
+                staticGateway:  document.getElementById('staticGateway').value,
+                staticDNS:      document.getElementById('staticDNS').value,
+                remoteHost:     document.getElementById('remoteHost').value
             };
 
             try {
