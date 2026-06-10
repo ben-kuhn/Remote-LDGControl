@@ -43,6 +43,35 @@
             font-size: 0.85rem;
             color: #ffaa00;
         }
+        .reset-toggle {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+        .reset-toggle.armed {
+            border-color: #ff6666;
+            background: #2a1a1a;
+        }
+        .reset-toggle input[type="checkbox"] {
+            margin-top: 0.2rem;
+            transform: scale(1.3);
+            cursor: pointer;
+            accent-color: #ff6666;
+        }
+        .reset-toggle label {
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #ddd;
+        }
+        .reset-toggle label strong { color: #fff; }
+        .reset-toggle.armed label strong { color: #ff8888; }
+        .reset-toggle .reset-note { display: block; color: #888; font-size: 0.8rem; margin-top: 0.25rem; }
+        .reset-toggle.armed .reset-note { color: #ffaaaa; }
         .steps {
             background: #16213e;
             border-radius: 8px;
@@ -82,22 +111,24 @@
             <strong>Note:</strong> Requires Chrome, Edge, or Opera. Safari and Firefox are not supported.
         </div>
 
+        <div class="reset-toggle" id="resetToggle">
+            <input type="checkbox" id="factoryReset">
+            <label for="factoryReset">
+                <strong>Factory reset before flashing</strong>
+                <span class="reset-note">Erases the entire flash (NVS, LittleFS, app) before writing the new firmware. Wipes saved WiFi credentials, web password, MQTT broker, and the portal TLS cert — you'll go through first-boot captive-portal setup again. Use this when troubleshooting a stuck device or wanting a known-clean state.</span>
+            </label>
+        </div>
+
         <div class="variant">
             <h3>Display Unit</h3>
-            <p>For units with BTT TFT35-SPI touchscreen. Includes web UI, MQTT, and touch controls.</p>
+            <p>Shack controller with BTT TFT35-SPI touchscreen. Web UI, MQTT, touch controls, and acts as the server endpoint a remote unit subscribes to.</p>
             <esp-web-install-button manifest="manifest-display.json"></esp-web-install-button>
         </div>
 
         <div class="variant">
             <h3>Remote Unit</h3>
-            <p>Headless unit for remote tuner locations. Connects to a display unit.</p>
+            <p>Headless. Full web server, MQTT, and tuner UART; can also subscribe to a Display Unit over SSE when configured. Use this for any non-display build.</p>
             <esp-web-install-button manifest="manifest-remote.json"></esp-web-install-button>
-        </div>
-
-        <div class="variant">
-            <h3>Basic Unit</h3>
-            <p>Headless unit with web UI and MQTT. No remote link or display support.</p>
-            <esp-web-install-button manifest="manifest-nodisplay.json"></esp-web-install-button>
         </div>
 
         <footer>
@@ -105,5 +136,27 @@
             <a href="https://github.com/ben-kuhn/Remote-LDGControl/blob/main/WIRING.md">Wiring Diagram</a>
         </footer>
     </div>
+
+    <script>
+        // Mirror the factory-reset checkbox onto every install button as the
+        // `erase-first` attribute. esp-web-tools reads this attribute at click
+        // time and runs a full chip erase before flashing — wiping NVS,
+        // LittleFS, and the app. Toggling after a button has been clicked
+        // doesn't matter; the lib re-reads on each install start.
+        const resetCheckbox = document.getElementById('factoryReset');
+        const resetWrap     = document.getElementById('resetToggle');
+        const installButtons = document.querySelectorAll('esp-web-install-button');
+
+        function applyReset() {
+            const on = resetCheckbox.checked;
+            resetWrap.classList.toggle('armed', on);
+            installButtons.forEach(b => {
+                if (on) b.setAttribute('erase-first', '');
+                else    b.removeAttribute('erase-first');
+            });
+        }
+        resetCheckbox.addEventListener('change', applyReset);
+        applyReset();  // sync on load (browser may restore checkbox state)
+    </script>
 </body>
 </html>
