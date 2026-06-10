@@ -34,6 +34,14 @@ nix-shell -p platformio --run "pio run -e esp32-remote -t upload --upload-port /
 
 **Before flashing, stop any background serial reader on `/dev/ttyUSB1`** (e.g. a `cat /dev/ttyUSB1 >> log` watch). esptool runs the upload at 921600 baud and will fail with `Invalid head of packet … Possible serial noise or corruption` if anything else is reading the port concurrently. Restart the reader after the flash + RTS reset.
 
+**`pio upload` does NOT touch the LittleFS partition.** The web UI HTML lives in `data/index.html` and is served from LittleFS, not from the firmware binary. Any change under `data/` requires a separate flash:
+
+```bash
+nix-shell -p platformio --run "pio run -e esp32-remote -t uploadfs --upload-port /dev/ttyUSB1"
+```
+
+When the user reports a web-UI bug after a `data/` change, flash the firmware (if needed) AND `uploadfs` before claiming "the device is on latest". Don't assume "I uploaded the build" covers data-partition changes — it doesn't.
+
 There is **no test suite** in this repo yet. CI (`.github/workflows/build.yml`) builds both envs on push, releases binaries on tags, and deploys `flash.html` to GitHub Pages.
 
 ### Testing
