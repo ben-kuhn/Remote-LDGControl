@@ -329,9 +329,24 @@ static void h_events(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
     res->setHeader("Cache-Control", "no-cache, no-transform");
     res->setHeader("X-Accel-Buffering", "no");
     res->setHeader("Access-Control-Allow-Origin", "*");
-    res->setHeader("Connection", "keep-alive");
+    // Streaming response with no Content-Length — there's no keep-alive to do
+    // at HTTP level (TCP keepalive is independent). Telling the library "close"
+    // routes post-handler cleanup down the simple STATE_BODY_FINISHED →
+    // closeConnection() branch instead of the keep-alive reuse path.
+    res->setHeader("Connection", "close");
 
-    // Force the response cache to overflow once so subsequent writes stream.
+    // Local helper: every res->print() can silently fail because
+    // esp_tls_conn_write returns a negative ssize_t on connection-reset, and
+    // HTTPResponse::print just returns that as size_t (an enormous number).
+    // Compare returned bytes to expected length — the ONLY reliable failure
+    // signal. Returns true on a clean write, false on any short/over write.
+    auto write_ok = [res](const char* s, size_t n) -> bool {
+        return res->print(s) == n;
+    };
+
+    // Force the response cache to overflow once so subsequent writes stream
+    // direct to TLS. If the client TLS is already torn down, this fails — bail
+    // out immediately rather than entering the loop with a dead connection.
     {
         char pad[1500];
         pad[0] = ':';
@@ -340,7 +355,10 @@ static void h_events(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
         pad[sizeof(pad) - 3] = '\n';
         pad[sizeof(pad) - 2] = '\n';
         pad[sizeof(pad) - 1] = '\0';
-        res->print(pad);
+        if (!write_ok(pad, sizeof(pad) - 1)) {
+            if (res->_con) res->_con->signalClientClose();
+            return;
+        }
     }
 
     // Snapshot current seqs so this subscriber doesn't replay history.
@@ -354,28 +372,37 @@ static void h_events(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
     portEXIT_CRITICAL(&s_sse.mux);
 
     // If a meter value exists, send it once so the client renders immediately
-    // instead of waiting for the next push.
+    // instead of waiting for the next push. Bail on write failure here too.
     if (lastMeterSeq > 0 && initMeter[0] != '\0') {
-        res->print("event: meter\ndata: ");
-        res->print(initMeter);
-        res->print("\n\n");
+        static const char  HDR[]   = "event: meter\ndata: ";
+        static const char  END[]   = "\n\n";
+        static const size_t HDR_LEN = sizeof(HDR) - 1;
+        static const size_t END_LEN = sizeof(END) - 1;
+        size_t mLen = strlen(initMeter);
+        if (!write_ok(HDR, HDR_LEN) ||
+            !write_ok(initMeter, mLen) ||
+            !write_ok(END, END_LEN)) {
+            if (res->_con) res->_con->signalClientClose();
+            return;
+        }
     }
 
-    uint32_t lastKeepalive = millis();
-    int failedWrites = 0;
-    // Fixed payload so we can validate the write by comparing the returned
-    // byte count to the expected length. esp_tls_conn_write returns a
-    // negative ssize_t on connection-reset/send-failure; that gets cast to
-    // an enormous size_t inside HTTPResponse::print, so the previous
-    // `print() == 0` check never tripped — handlers stuck forever and
-    // leaked the (4) server worker slots until the whole runtime stopped
-    // answering. Length-mismatch is the reliable failure signal.
     static const char  KEEPALIVE[]   = ": keepalive\n\n";
     static const size_t KEEPALIVE_LEN = sizeof(KEEPALIVE) - 1;
     const uint32_t KEEPALIVE_INTERVAL_MS = 2000;
     const int      MAX_FAILED_WRITES     = 3;
+    // Hard session cap. Even on a healthy stream we exit periodically so the
+    // worker slot recycles and any subtle library-side state drift gets reset.
+    // Browsers reconnect SSE automatically; the snapshot above keeps the UI
+    // continuous across the reconnect.
+    const uint32_t SESSION_MAX_MS = 10UL * 60 * 1000;
 
-    while (failedWrites < MAX_FAILED_WRITES) {
+    uint32_t lastKeepalive = millis();
+    uint32_t sessionStart  = millis();
+    int failedWrites = 0;
+
+    while (failedWrites < MAX_FAILED_WRITES &&
+           millis() - sessionStart < SESSION_MAX_MS) {
         uint32_t mSeq, sSeq;
         char     mBuf[sizeof(s_sse.meterJson)];
         char     sBuf[sizeof(s_sse.statusJson)];
@@ -403,9 +430,9 @@ static void h_events(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
             static const size_t HDR_LEN = sizeof(HDR) - 1;
             static const size_t END_LEN = sizeof(END) - 1;
             size_t mLen = strlen(mBuf);
-            if (res->print(HDR) != HDR_LEN ||
-                res->print(mBuf) != mLen   ||
-                res->print(END) != END_LEN) writeOk = false;
+            if (!write_ok(HDR, HDR_LEN) ||
+                !write_ok(mBuf, mLen)   ||
+                !write_ok(END, END_LEN)) writeOk = false;
             lastMeterSeq = mSeq;
         }
         if (sSeq != lastStatusSeq) {
@@ -415,14 +442,14 @@ static void h_events(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
             static const size_t HDR_LEN = sizeof(HDR) - 1;
             static const size_t END_LEN = sizeof(END) - 1;
             size_t sLen = strlen(sBuf);
-            if (res->print(HDR) != HDR_LEN ||
-                res->print(sBuf) != sLen   ||
-                res->print(END) != END_LEN) writeOk = false;
+            if (!write_ok(HDR, HDR_LEN) ||
+                !write_ok(sBuf, sLen)   ||
+                !write_ok(END, END_LEN)) writeOk = false;
             lastStatusSeq = sSeq;
         }
         if (millis() - lastKeepalive > KEEPALIVE_INTERVAL_MS) {
             didWrite = true;
-            if (res->print(KEEPALIVE) != KEEPALIVE_LEN) writeOk = false;
+            if (!write_ok(KEEPALIVE, KEEPALIVE_LEN)) writeOk = false;
             lastKeepalive = millis();
         }
 
@@ -432,6 +459,10 @@ static void h_events(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
         }
         delay(50);
     }
+
+    // Explicit teardown signal so the library's connection state machine
+    // advances promptly rather than waiting for its idle timeout.
+    if (res->_con) res->_con->signalClientClose();
 }
 
 // ---------------------------------------------------------------------------
