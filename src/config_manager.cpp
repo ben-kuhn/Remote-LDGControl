@@ -414,9 +414,12 @@ bool ConfigManager::isConfigured() const {
 void ConfigManager::loadDefaults() {
     m_config.wifiSSID[0] = '\0';
     m_config.wifiPassword[0] = '\0';
-    strncpy(m_config.mqttBroker, MQTT_BROKER, sizeof(m_config.mqttBroker) - 1);
-    strncpy(m_config.mqttUsername, MQTT_USERNAME, sizeof(m_config.mqttUsername) - 1);
-    strncpy(m_config.mqttPassword, MQTT_PASSWORD, sizeof(m_config.mqttPassword) - 1);
+    // MQTT is optional. Leave broker/creds empty by default — main.cpp uses
+    // an empty broker as the "MQTT disabled" signal so a never-configured
+    // device doesn't chatter at a fake default IP.
+    m_config.mqttBroker[0]   = '\0';
+    m_config.mqttUsername[0] = '\0';
+    m_config.mqttPassword[0] = '\0';
     strncpy(m_config.webUsername, WEB_AUTH_USERNAME, sizeof(m_config.webUsername) - 1);
     strncpy(m_config.webPassword, WEB_AUTH_PASSWORD, sizeof(m_config.webPassword) - 1);
     m_config.meterPsuVoltage = METER_PSU_VOLTAGE;
@@ -470,15 +473,12 @@ bool ConfigManager::load() {
         return false;
     }
 
-    String mqttBroker = m_prefs.getString("mqttBroker", "");
-    if (mqttBroker.isEmpty()) {
-        m_prefs.end();
-        return false;
-    }
-
+    // MQTT broker may legitimately be empty — that just means MQTT is off.
+    // Use `configured` (set after captive-portal save) as the "did setup run"
+    // signal; don't conflate it with whether MQTT is wanted.
     strncpy(m_config.wifiSSID,     m_prefs.getString("wifiSSID", "").c_str(),     sizeof(m_config.wifiSSID)     - 1);
     strncpy(m_config.wifiPassword, m_prefs.getString("wifiPassword", "").c_str(), sizeof(m_config.wifiPassword) - 1);
-    strncpy(m_config.mqttBroker, mqttBroker.c_str(), sizeof(m_config.mqttBroker) - 1);
+    strncpy(m_config.mqttBroker,   m_prefs.getString("mqttBroker", "").c_str(),   sizeof(m_config.mqttBroker)   - 1);
     strncpy(m_config.mqttUsername, m_prefs.getString("mqttUsername", "").c_str(), sizeof(m_config.mqttUsername) - 1);
     strncpy(m_config.mqttPassword, m_prefs.getString("mqttPassword", "").c_str(), sizeof(m_config.mqttPassword) - 1);
     strncpy(m_config.webUsername, m_prefs.getString("webUsername", "").c_str(), sizeof(m_config.webUsername) - 1);

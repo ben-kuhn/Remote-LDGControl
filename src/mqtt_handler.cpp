@@ -1,5 +1,6 @@
 #include "mqtt_handler.h"
 #include "config.h"
+#include "config_manager.h"
 #include <ArduinoJson.h>
 
 MqttHandler* MqttHandler::s_instance = nullptr;
@@ -20,8 +21,9 @@ MqttHandler::~MqttHandler() {
 }
 
 bool MqttHandler::begin(WiFiClient& wifiClient, mqtt_command_handler_t cmdHandler) {
+    const DeviceConfig& cfg = configManager.get();
     m_client = new PubSubClient(wifiClient);
-    m_client->setServer(MQTT_BROKER, MQTT_PORT);
+    m_client->setServer(cfg.mqttBroker, cfg.mqttPort);
     m_client->setKeepAlive(MQTT_KEEPALIVE);
     m_client->setBufferSize(1024);
     m_cmdHandler = cmdHandler;
@@ -32,16 +34,18 @@ bool MqttHandler::begin(WiFiClient& wifiClient, mqtt_command_handler_t cmdHandle
 
 bool MqttHandler::connect() {
     if (m_connected) return true;
+    if (!m_client) return false;  // begin() was skipped (no broker configured)
 
     String clientId = MQTT_CLIENT_PREFIX;
     clientId += "-";
     clientId += WiFi.macAddress();
     clientId.replace(":", "");
 
+    const DeviceConfig& cfg = configManager.get();
     bool result = m_client->connect(
         clientId.c_str(),
-        MQTT_USERNAME,
-        MQTT_PASSWORD,
+        cfg.mqttUsername,
+        cfg.mqttPassword,
         MQTT_TOPIC_STATUS,
         MQTT_QOS,
         true,

@@ -365,16 +365,21 @@ void setup() {
 #endif
 
     if (wifiConnected) {
-        // mqttClient must outlive setup() — PubSubClient stores a reference.
-        static WiFiClient mqttClient;
-        mqtt.begin(mqttClient, executeCommand);
-        mqtt.subscribeRemoteTelemetry(onRemoteTelemetry);
-        mqtt.subscribeRemoteStatus(onRemoteStatus);
+        const DeviceConfig& cfg = configManager.get();
+        if (cfg.mqttBroker[0] != '\0') {
+            // mqttClient must outlive setup() — PubSubClient stores a reference.
+            static WiFiClient mqttClient;
+            mqtt.begin(mqttClient, executeCommand);
+            mqtt.subscribeRemoteTelemetry(onRemoteTelemetry);
+            mqtt.subscribeRemoteStatus(onRemoteStatus);
 
-        // mqtt.connect() blocks on TCP connect to the broker. Don't call it
-        // here — main loop()'s mqtt.loop() will reconnect on its own 5 s
-        // backoff, and an unreachable broker would otherwise hang setup()
-        // long enough to trip the IDLE-task watchdog.
+            // mqtt.connect() blocks on TCP connect to the broker. Don't call
+            // it here — main loop()'s mqtt.loop() will reconnect on its own
+            // 5 s backoff, and an unreachable broker would otherwise hang
+            // setup() long enough to trip the IDLE-task watchdog.
+        } else {
+            Serial.println("MQTT broker not configured; MQTT disabled");
+        }
     }
 
     if (!webServer.begin(&tuner, executeCommand, getActiveMeter, onRemoteTelemetry)) {
