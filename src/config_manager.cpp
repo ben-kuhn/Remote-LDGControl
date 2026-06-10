@@ -368,21 +368,22 @@ bool ConfigManager::setupWiFi() {
         if (httpsServer) httpsServer->loop();
 
         if (WiFi.status() == WL_CONNECTED) {
-            Serial.printf("\nConnected: %s\n", WiFi.localIP().toString().c_str());
-            if (dnsServer) {
-                delete dnsServer;
-                dnsServer = nullptr;
-            }
-            // Let the /save handler's TLS connection finish so its slot is
-            // free before we stop the server (the lib's stop() loops until
-            // all connections close).
+            Serial.printf("\nConnected: %s — rebooting to release :443 cleanly\n",
+                          WiFi.localIP().toString().c_str());
+            // esp32_idf5_https_server's HTTPServer::setupSocket() binds without
+            // SO_REUSEADDR. If we just tore the portal HTTPSServer down here and
+            // then tried to bind the runtime server on the same port, lwIP
+            // would return EADDRINUSE because the previous listening socket
+            // sits in TIME_WAIT. Reboot instead — on next boot, setupWiFi()'s
+            // fast-path joins STA without ever starting the portal server, and
+            // :443 is free for the runtime to bind.
+            //
+            // Brief drain so the /save TLS response actually reaches the
+            // client before the reset; the portal JS already plans for the
+            // device to disappear (it does a delayed location.reload).
             delay(3000);
-            stopPortalServer();
-            // Drop the softAP — the AP was only needed for the portal.
-            // Both builds operate purely on the infrastructure network.
-            WiFi.softAPdisconnect(true);
-            WiFi.mode(WIFI_STA);
-            return true;
+            ESP.restart();
+            return true;  // unreachable, keeps the compiler happy
         }
 
         if ((int32_t)(millis() - nextHeapLog) >= 0) {
