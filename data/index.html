@@ -488,42 +488,43 @@
             const h = canvas.height;
             const pad = 40;
 
-            // Pivots sit at the bottom corners (cy, cx±radius). Arc spans
-            // the upper half of the canvas.
-            const cx = w / 2;
-            const cy = h - pad;
-            const radius = (w / 2) - pad;
+            // Cross-needle geometry mirrors src/display_ui.cpp: each needle
+            // pivots at a bottom corner and sweeps its own 90° arc with
+            // radius = needle length. Because arm = 2·halfBase, each arc
+            // passes through the other pivot at zero (needle resting
+            // horizontal) and the two arcs cross near top-center at full.
+            const fwdPx = w - pad;          // forward pivot, bottom-right
+            const fwdPy = h - pad;
+            const refPx = pad;              // reflected pivot, bottom-left
+            const refPy = h - pad;
+            const arm   = h - 2 * pad;      // needle length = arc radius
+            const halfBase = (w - 2 * pad) / 2;
 
             ctx.clearRect(0, 0, w, h);
-
-            // Background
             ctx.fillStyle = '#0b0c10';
             ctx.fillRect(0, 0, w, h);
 
-            // Draw SWR curves first (behind needles)
-            drawSWRCurves(cx, cy, radius);
+            // SWR locus curves under the needles
+            drawSWRCurves(fwdPx, fwdPy, refPx, refPy, arm);
 
-            // Forward arc: left (φ=π, zero) → top (φ=3π/2, full scale)
-            ctx.strokeStyle = 'rgba(34,197,94,0.35)';
+            // Per-pivot scale arcs. Canvas convention: 0=E, π/2=S, π=W, 3π/2=N.
+            // Forward arc:  π (left/zero)  → 3π/2 (up/full)  in the upper-left
+            //                                                quadrant of fwd pivot
+            // Reflected arc: 3π/2 (up/full) → 2π (right/zero) in the upper-right
+            //                                                quadrant of ref pivot
             ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(34,197,94,0.55)';
             ctx.beginPath();
-            ctx.arc(cx, cy, radius, Math.PI, 1.5 * Math.PI);
+            ctx.arc(fwdPx, fwdPy, arm, Math.PI, 1.5 * Math.PI);
             ctx.stroke();
-            // Reflected arc: top (φ=3π/2, full scale) → right (φ=2π, zero), clockwise
-            ctx.strokeStyle = 'rgba(239,68,68,0.35)';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(239,68,68,0.55)';
             ctx.beginPath();
-            ctx.arc(cx, cy, radius, 1.5 * Math.PI, 2 * Math.PI);
+            ctx.arc(refPx, refPy, arm, 1.5 * Math.PI, 2 * Math.PI);
             ctx.stroke();
 
-            // Two scales meet at the top: forward sweeps the LEFT half
-            // (φ from π to 3π/2 = 0% to 100%), reflected the RIGHT half
-            // (φ from 2π to 3π/2 = 0% to 100%). Ticks every 10%, labels
-            // every 25%.
-            // 8 ticks per half-arc (every 12.5%), labels at 0/25/50/75/100%.
-            // The 100% label is centered above the apex once so the two
-            // colors don't fight for the same spot.
-            function drawScale(phiZero, phiFull, color) {
+            // 8 ticks per arc (every 12.5%); major every 25% with labels.
+            // Ticks radiate from each pivot, labels sit just inside the arc.
+            function drawScale(pivotX, pivotY, phiZero, phiFull, color) {
                 const N = 8;
                 for (let i = 0; i <= N; i++) {
                     const f = i / N;
@@ -535,14 +536,17 @@
                     ctx.strokeStyle = major ? color : '#666';
                     ctx.lineWidth = major ? 2 : 1;
                     ctx.beginPath();
-                    ctx.moveTo(cx + cos * (radius + 2), cy + sin * (radius + 2));
-                    ctx.lineTo(cx + cos * (radius + 2 + tickLen), cy + sin * (radius + 2 + tickLen));
+                    ctx.moveTo(pivotX + cos * (arm + 2),
+                               pivotY + sin * (arm + 2));
+                    ctx.lineTo(pivotX + cos * (arm + 2 + tickLen),
+                               pivotY + sin * (arm + 2 + tickLen));
                     ctx.stroke();
-                    // Skip the 100% label here; we'll draw a single shared "100" above the apex
+                    // Skip the 100% per-arc label; shared "max" label below
+                    // sits above the arc crossing.
                     if (major && i < N) {
                         const val = Math.round(f * meterState.maxPower);
-                        const lx = cx + cos * (radius - 20);
-                        const ly = cy + sin * (radius - 20);
+                        const lx = pivotX + cos * (arm - 22);
+                        const ly = pivotY + sin * (arm - 22);
                         ctx.fillStyle = color;
                         ctx.font = 'bold 18px -apple-system, sans-serif';
                         ctx.textAlign = 'center';
@@ -551,98 +555,85 @@
                     }
                 }
             }
-            drawScale(Math.PI,     1.5 * Math.PI, '#22c55e');  // forward, left-half
-            drawScale(2 * Math.PI, 1.5 * Math.PI, '#ef4444');  // reflected, right-half
+            drawScale(fwdPx, fwdPy, Math.PI,     1.5 * Math.PI, '#22c55e');
+            drawScale(refPx, refPy, 2 * Math.PI, 1.5 * Math.PI, '#ef4444');
 
-            // Shared max-scale label above the apex
+            // The two arcs meet at the midline, at y = pivotY − √(arm² − hb²).
+            // Shared "max scale" label + "WATTS" caption float just above it.
+            const cx = w / 2;
+            const crossY = fwdPy - Math.sqrt(arm * arm - halfBase * halfBase);
             ctx.fillStyle = '#ccc';
             ctx.font = 'bold 18px -apple-system, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(meterState.maxPower.toString(), cx, cy - radius - 14);
-
-            // "WATTS" caption above the max-scale label
+            ctx.fillText(meterState.maxPower.toString(), cx, crossY - 22);
             ctx.fillStyle = '#888';
             ctx.font = '12px -apple-system, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('WATTS', cx, cy - radius - 30);
+            ctx.fillText('WATTS', cx, crossY - 40);
 
-            // Pivot points
-            const fwdPx = cx + radius;  // bottom-right
-            const fwdPy = cy;
-            const refPx = cx - radius;  // bottom-left
-            const refPy = cy;
-
-            // Pivot dots
+            // Dim pivot rings (drawn before needles so the bright dots stack on top)
             ctx.fillStyle = '#166534';
             ctx.beginPath();
             ctx.arc(fwdPx, fwdPy, 10, 0, 2 * Math.PI);
             ctx.fill();
-
             ctx.fillStyle = '#7f1d1d';
             ctx.beginPath();
             ctx.arc(refPx, refPy, 10, 0, 2 * Math.PI);
             ctx.fill();
 
-            // Needle tips on the SCALE ARC directly.
-            //   Forward: tip at φ = π + fwdFrac·(π/2)   (LEFT → TOP)
-            //   Reflected: tip at φ = 2π − refFrac·(π/2) (RIGHT → TOP)
+            // Needles: fixed length = arm, tip walks along the per-pivot arc.
+            //   Forward:  φ = π     + fwdFrac·(π/2)    (left → up)
+            //   Reflected:φ = 2π − refFrac·(π/2)       (right → up)
             const fwdFrac = Math.min(meterState.fwdPower / meterState.maxPower, 1);
             const refFrac = Math.min(meterState.refPower / meterState.maxPower, 1);
             const fwdTipPhi = Math.PI + fwdFrac * (Math.PI / 2);
             const refTipPhi = 2 * Math.PI - refFrac * (Math.PI / 2);
-            const fwdTipX = cx + radius * Math.cos(fwdTipPhi);
-            const fwdTipY = cy + radius * Math.sin(fwdTipPhi);
-            const refTipX = cx + radius * Math.cos(refTipPhi);
-            const refTipY = cy + radius * Math.sin(refTipPhi);
+            const fwdTipX = fwdPx + arm * Math.cos(fwdTipPhi);
+            const fwdTipY = fwdPy + arm * Math.sin(fwdTipPhi);
+            const refTipX = refPx + arm * Math.cos(refTipPhi);
+            const refTipY = refPy + arm * Math.sin(refTipPhi);
 
-            // Draw forward needle (green)
+            ctx.lineCap = 'round';
             ctx.strokeStyle = '#22c55e';
             ctx.lineWidth = 4;
-            ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(fwdPx, fwdPy);
             ctx.lineTo(fwdTipX, fwdTipY);
             ctx.stroke();
 
-            // Draw reflected needle (red)
             ctx.strokeStyle = '#ef4444';
-            ctx.lineWidth = 4;
             ctx.beginPath();
             ctx.moveTo(refPx, refPy);
             ctx.lineTo(refTipX, refTipY);
             ctx.stroke();
 
-            // Pivot center dots (on top of needles)
+            // Bright pivot dots over the needles
             ctx.fillStyle = '#22c55e';
             ctx.beginPath();
             ctx.arc(fwdPx, fwdPy, 5, 0, 2 * Math.PI);
             ctx.fill();
-
             ctx.fillStyle = '#ef4444';
             ctx.beginPath();
             ctx.arc(refPx, refPy, 5, 0, 2 * Math.PI);
             ctx.fill();
 
-            // Power readouts at bottom
+            // Power readouts under each pivot
             ctx.fillStyle = '#22c55e';
             ctx.font = 'bold 22px -apple-system, sans-serif';
             ctx.textAlign = 'right';
-            ctx.fillText(meterState.fwdPower.toFixed(1) + 'W', cx + radius - 10, cy + 35);
-
+            ctx.fillText(meterState.fwdPower.toFixed(1) + 'W', fwdPx - 10, fwdPy + 35);
             ctx.fillStyle = '#ef4444';
             ctx.textAlign = 'left';
-            ctx.fillText(meterState.refPower.toFixed(1) + 'W', cx - radius + 10, cy + 35);
+            ctx.fillText(meterState.refPower.toFixed(1) + 'W', refPx + 10, refPy + 35);
         }
 
-        function drawSWRCurves(cx, cy, radius) {
+        function drawSWRCurves(fwdPx, fwdPy, refPx, refPy, arm) {
             const swrValues = [1.5, 2, 3, 5, 10];
             const colors = ['#84cc16', '#eab308', '#f97316', '#ef4444', '#a855f7'];
-            const fwdPx = cx + radius, fwdPy = cy;
-            const refPx = cx - radius, refPy = cy;
 
             // For each SWR ratio: refPower/fwdPower = γ². Sweep fwdFrac and
-            // plot the locus of needle intersections.
+            // plot the locus of needle intersections. Each needle is a line
+            // from its own pivot at length=arm along its sweep angle.
             for (let si = 0; si < swrValues.length; si++) {
                 const swr = swrValues[si];
                 const gamma = (swr - 1) / (swr + 1);
@@ -662,10 +653,10 @@
 
                     const fwdPhi = Math.PI + fwdFrac * (Math.PI / 2);
                     const refPhi = 2 * Math.PI - refFrac * (Math.PI / 2);
-                    const fwdTx = cx + radius * Math.cos(fwdPhi);
-                    const fwdTy = cy + radius * Math.sin(fwdPhi);
-                    const refTx = cx + radius * Math.cos(refPhi);
-                    const refTy = cy + radius * Math.sin(refPhi);
+                    const fwdTx = fwdPx + arm * Math.cos(fwdPhi);
+                    const fwdTy = fwdPy + arm * Math.sin(fwdPhi);
+                    const refTx = refPx + arm * Math.cos(refPhi);
+                    const refTy = refPy + arm * Math.sin(refPhi);
 
                     const ix = lineIntersect(fwdPx, fwdPy, fwdTx, fwdTy,
                                               refPx, refPy, refTx, refTy);
