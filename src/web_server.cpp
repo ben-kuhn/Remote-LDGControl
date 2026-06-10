@@ -363,8 +363,19 @@ static void h_events(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
 
     uint32_t lastKeepalive = millis();
     int failedWrites = 0;
+    // Fixed payload so we can validate the write by comparing the returned
+    // byte count to the expected length. esp_tls_conn_write returns a
+    // negative ssize_t on connection-reset/send-failure; that gets cast to
+    // an enormous size_t inside HTTPResponse::print, so the previous
+    // `print() == 0` check never tripped — handlers stuck forever and
+    // leaked the (4) server worker slots until the whole runtime stopped
+    // answering. Length-mismatch is the reliable failure signal.
+    static const char  KEEPALIVE[]   = ": keepalive\n\n";
+    static const size_t KEEPALIVE_LEN = sizeof(KEEPALIVE) - 1;
+    const uint32_t KEEPALIVE_INTERVAL_MS = 2000;
+    const int      MAX_FAILED_WRITES     = 3;
 
-    while (failedWrites < 5) {
+    while (failedWrites < MAX_FAILED_WRITES) {
         uint32_t mSeq, sSeq;
         char     mBuf[sizeof(s_sse.meterJson)];
         char     sBuf[sizeof(s_sse.statusJson)];
@@ -382,26 +393,43 @@ static void h_events(hsv::HTTPRequest* req, hsv::HTTPResponse* res) {
         }
         portEXIT_CRITICAL(&s_sse.mux);
 
-        size_t written = 1;  // sentinel for "something to write"
+        bool didWrite = false;
+        bool writeOk  = true;
 
         if (mSeq != lastMeterSeq) {
-            written = res->print("event: meter\ndata: ");
-            res->print(mBuf);
-            res->print("\n\n");
+            didWrite = true;
+            static const char  HDR[]   = "event: meter\ndata: ";
+            static const char  END[]   = "\n\n";
+            static const size_t HDR_LEN = sizeof(HDR) - 1;
+            static const size_t END_LEN = sizeof(END) - 1;
+            size_t mLen = strlen(mBuf);
+            if (res->print(HDR) != HDR_LEN ||
+                res->print(mBuf) != mLen   ||
+                res->print(END) != END_LEN) writeOk = false;
             lastMeterSeq = mSeq;
         }
         if (sSeq != lastStatusSeq) {
-            written = res->print("event: status\ndata: ");
-            res->print(sBuf);
-            res->print("\n\n");
+            didWrite = true;
+            static const char  HDR[]   = "event: status\ndata: ";
+            static const char  END[]   = "\n\n";
+            static const size_t HDR_LEN = sizeof(HDR) - 1;
+            static const size_t END_LEN = sizeof(END) - 1;
+            size_t sLen = strlen(sBuf);
+            if (res->print(HDR) != HDR_LEN ||
+                res->print(sBuf) != sLen   ||
+                res->print(END) != END_LEN) writeOk = false;
             lastStatusSeq = sSeq;
         }
-        if (millis() - lastKeepalive > 5000) {
-            written = res->print(": keepalive\n\n");
+        if (millis() - lastKeepalive > KEEPALIVE_INTERVAL_MS) {
+            didWrite = true;
+            if (res->print(KEEPALIVE) != KEEPALIVE_LEN) writeOk = false;
             lastKeepalive = millis();
         }
 
-        if (written == 0) failedWrites++; else failedWrites = 0;
+        if (didWrite) {
+            if (writeOk) failedWrites = 0;
+            else         failedWrites++;
+        }
         delay(50);
     }
 }
