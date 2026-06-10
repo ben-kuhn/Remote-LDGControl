@@ -42,6 +42,22 @@ nix-shell -p platformio --run "pio run -e esp32-remote -t uploadfs --upload-port
 
 When the user reports a web-UI bug after a `data/` change, flash the firmware (if needed) AND `uploadfs` before claiming "the device is on latest". Don't assume "I uploaded the build" covers data-partition changes — it doesn't.
 
+**Don't use `cat /dev/ttyUSB1` (or any default-flags serial open) as a long-running monitor.** Opening the port with default Linux/pyserial flags asserts DTR and RTS, which on this NodeMCU-style board drives EN low (reset asserted) and GPIO0 low (download mode). The ESP32 then stays held in reset+download for as long as the reader is alive — looks identical to "the chip is bricked" with no boot output, ROM bootloader garbage, and no LAN response despite the host enumerating `/dev/ttyUSB1`. Wasted hours of "the wedge corrupted NVS" hypothesis chasing this before figuring it out.
+
+Use `scripts/serial_monitor.py` instead — it opens via pyserial and explicitly clears DTR and RTS on every reopen, so the chip can boot normally:
+
+```bash
+nix-shell -p platformio --run "python scripts/serial_monitor.py /dev/ttyUSB1 115200 /tmp/portal_log.txt"
+```
+
+If you ever DO get a "silent chip" symptom, before assuming the chip is bricked, manually release the lines:
+
+```bash
+nix-shell -p platformio --run "python -c 'import serial; s=serial.Serial(\"/dev/ttyUSB1\", 115200); s.dtr=False; s.rts=False; s.close()'"
+```
+
+**Local library patches.** `patches/` holds unified diffs that get applied to managed PlatformIO library deps under `.pio/libdeps/<env>/<libname>/` via `scripts/apply_patches.py` (wired as `extra_scripts = pre:` in `platformio.ini`). Currently used to fix a NULL-`_ssl` polling crash in `esp32_idf5_https_server` that takes down the runtime web server when SSE clients close — see `tests/wedge_repro.sh` for the reproduction. If a future `pio pkg install` or clean checkout wipes `.pio/libdeps/`, the next build automatically re-applies the patches; idempotent so repeated builds don't double-apply.
+
 There is **no test suite** in this repo yet. CI (`.github/workflows/build.yml`) builds both envs on push, releases binaries on tags, and deploys `flash.html` to GitHub Pages.
 
 ### Testing
