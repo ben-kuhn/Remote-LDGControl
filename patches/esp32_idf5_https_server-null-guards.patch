@@ -1,0 +1,36 @@
+--- a/src/HTTPSConnection.cpp	2026-06-10 14:12:37.308061584 -0500
++++ b/src/HTTPSConnection.cpp	2026-06-10 14:12:52.168318238 -0500
+@@ -86,19 +86,33 @@
+   }
+ }
+ 
++// LOCAL PATCH (Remote-LDGControl): NULL-guard every esp_tls_* call.
++//
++// HTTPSConnection::closeConnection() frees _ssl and sets it NULL but there are
++// code paths in HTTPServer::loop / HTTPConnection::loop where these accessors
++// get invoked AFTER _ssl is NULL but BEFORE the slot's connection object has
++// been deleted. Without these guards, esp_tls_get_bytes_avail(NULL) spams
++// "empty arg passed" errors at ~150/sec and starves the runtime web server.
++// Reproduce with tests/wedge_repro.sh — 2+ simultaneous SSE subscribers
++// closing roughly together triggers it.
++
+ size_t HTTPSConnection::writeBuffer(byte* buffer, size_t length) {
++  if (!_ssl) return 0;
+   return esp_tls_conn_write(_ssl,buffer,length);// SSL_write(_ssl, buffer, length);
+ }
+ 
+ size_t HTTPSConnection::readBytesToBuffer(byte* buffer, size_t length) {
++  if (!_ssl) return 0;  // 0 = "connection closed" to updateBuffer's caller
+   return esp_tls_conn_read(_ssl, buffer, length);
+ }
+ 
+ size_t HTTPSConnection::pendingByteCount() {
++  if (!_ssl) return 0;
+   return esp_tls_get_bytes_avail(_ssl);
+ }
+ 
+ bool HTTPSConnection::canReadData() {
++  if (!_ssl) return false;
+   return HTTPConnection::canReadData() || (esp_tls_get_bytes_avail(_ssl) > 0);
+ }
+ 
