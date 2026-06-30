@@ -42,7 +42,10 @@ function screw_positions() = [
 // ============================================================================
 module remote_base() {
     difference() {
-        box_shell();
+        union() {
+            box_shell();
+            powerpole_pocket_boss();
+        }
 
         esp32_nut_traps();
         powerpole_side_pocket();
@@ -112,6 +115,20 @@ module lid_nut_traps() {
 // ============================================================================
 // POWERPOLE SIDE-WALL POCKET
 // ============================================================================
+module powerpole_pocket_boss() {
+    // Solid boss on inside of right wall for pocket to be cut into
+    boss_w = pp_pocket_depth + 2;
+    boss_l = 35;
+    boss_h = pp_w + 6;
+    
+    z_center = floor_t + boss_h/2 + 2;
+    y_center = -case_d/2 + wall + boss_l/2;
+    x_wall_inner = case_w/2 - wall;
+    
+    translate([x_wall_inner - boss_w/2, y_center, z_center])
+        cube([boss_w, boss_l, boss_h], center = true);
+}
+
 module powerpole_side_pocket() {
     // Connector sits flat against right side wall, long axis along Y
     // Mating face at -Y end (back wall)
@@ -122,7 +139,7 @@ module powerpole_side_pocket() {
     y_center = -case_d/2 + wall + conn_length/2;
     x_wall_inner = case_w/2 - wall;
     
-    // Pocket recess into side wall (from inside, 4mm deep)
+    // Pocket recess into side wall (from inside, 10mm deep)
     translate([x_wall_inner - pp_pocket_depth/2, y_center, z_center])
         cube([pp_pocket_depth, conn_length + 2*tol, pp_w + 2*tol], center = true);
     
