@@ -23,7 +23,6 @@ notch_depth  = 5;
 
 esp32_x_off    = -20;
 
-corner_post_d  = 8;
 screw_inset    = 8;
 
 pp_boss_depth  = 6;
@@ -45,7 +44,6 @@ module remote_base() {
     difference() {
         union() {
             box_shell();
-            corner_posts();
             powerpole_pocket_boss();
         }
 
@@ -80,13 +78,6 @@ module box_shell() {
     }
 }
 
-module corner_posts() {
-    post_h = case_h - floor_t - 1;
-    for (pos = screw_positions())
-        translate([pos[0], pos[1], floor_t])
-            cylinder(d = corner_post_d, h = post_h, $fn = 32);
-}
-
 module esp32_nut_traps() {
     for (p = [[-nodemcu_hole_x/2, -nodemcu_hole_y/2],
                [ nodemcu_hole_x/2, -nodemcu_hole_y/2],
@@ -117,7 +108,7 @@ module corner_screw_holes(h) {
 
 module lid_nut_traps() {
     for (pos = screw_positions())
-        translate([pos[0], pos[1], case_h - m3_nut_dep])
+        translate([pos[0], pos[1], -0.1])
             nut_trap(m3_nut_dep + 0.1);
 }
 
