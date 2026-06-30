@@ -13,6 +13,7 @@ case_w = 120;
 case_d = 100;
 case_h = 40;
 lid_t  = 3;
+floor_t = 4;
 
 corner_r     = 3;
 foot_dia     = 6;
@@ -21,10 +22,6 @@ notch_w      = 12;
 notch_depth  = 5;
 
 esp32_x_off    = -20;
-breakout_x_off = 15;
-
-breakout_hole_x = 45;
-breakout_hole_y = 45;
 
 corner_post_d  = 8;
 screw_inset    = 8;
@@ -41,13 +38,6 @@ function screw_positions() = [
         [x * (case_w/2 - screw_inset), y * (case_d/2 - screw_inset)]
 ];
 
-function breakout_mount_positions() = [
-    [-breakout_hole_x/2, -breakout_hole_y/2],
-    [ breakout_hole_x/2, -breakout_hole_y/2],
-    [-breakout_hole_x/2,  breakout_hole_y/2],
-    [ breakout_hole_x/2,  breakout_hole_y/2]
-];
-
 // ============================================================================
 // BASE
 // ============================================================================
@@ -60,7 +50,6 @@ module remote_base() {
         }
 
         esp32_nut_traps();
-        breakout_nut_traps();
         powerpole_side_pocket();
         cable_notch();
 
@@ -99,20 +88,20 @@ module corner_posts() {
 }
 
 module esp32_nut_traps() {
-    translate([esp32_x_off, 0, -0.1])
-        for (p = [[-nodemcu_hole_x/2, -nodemcu_hole_y/2],
-                   [ nodemcu_hole_x/2, -nodemcu_hole_y/2],
-                   [-nodemcu_hole_x/2,  nodemcu_hole_y/2],
-                   [ nodemcu_hole_x/2,  nodemcu_hole_y/2]])
-            translate([p[0], p[1], 0])
-                nut_trap(floor_t + 0.2);
+    for (p = [[-nodemcu_hole_x/2, -nodemcu_hole_y/2],
+               [ nodemcu_hole_x/2, -nodemcu_hole_y/2],
+               [-nodemcu_hole_x/2,  nodemcu_hole_y/2],
+               [ nodemcu_hole_x/2,  nodemcu_hole_y/2]])
+        translate([esp32_x_off + p[0], p[1], 0])
+            embedded_nut_trap();
 }
 
-module breakout_nut_traps() {
-    translate([breakout_x_off, 0, -0.1])
-        for (pos = breakout_mount_positions())
-            translate([pos[0], pos[1], 0])
-                nut_trap(floor_t + 0.2);
+module embedded_nut_trap() {
+    screw_clearance_h = floor_t - m3_nut_dep;
+    translate([0, 0, -0.1])
+        cylinder(d = m3_dia, h = screw_clearance_h + 0.2, $fn = 24);
+    translate([0, 0, floor_t - m3_nut_dep])
+        nut_trap(m3_nut_dep + 0.1);
 }
 
 module cable_notch() {
