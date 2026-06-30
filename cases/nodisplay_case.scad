@@ -25,7 +25,7 @@ esp32_x_off    = -20;
 
 screw_inset    = 8;
 
-pp_pocket_depth = 4;
+pp_pocket_depth = 10;
 pp_conn_length  = 30;
 pp_pin_d        = 2;
 
@@ -113,16 +113,18 @@ module lid_nut_traps() {
 // POWERPOLE SIDE-WALL POCKET
 // ============================================================================
 module powerpole_side_pocket() {
-    // Connector flat against right side wall, mating face toward back wall
-    // 30mm length along Y, 16.8mm width along Z, 8.5mm height along X
+    // Connector sits flat against right side wall, long axis along Y
+    // Mating face at -Y end (back wall)
+    
+    conn_length = 30;
     
     z_center = floor_t + pp_w/2 + 2;
-    y_center = -case_d/2 + wall + pp_conn_length/2;
+    y_center = -case_d/2 + wall + conn_length/2;
     x_wall_inner = case_w/2 - wall;
     
-    // Pocket recess into side wall
+    // Pocket recess into side wall (from inside, 4mm deep)
     translate([x_wall_inner - pp_pocket_depth/2, y_center, z_center])
-        cube([pp_pocket_depth + 0.1, pp_conn_length + 2*tol, pp_w + 2*tol], center = true);
+        cube([pp_pocket_depth, conn_length + 2*tol, pp_w + 2*tol], center = true);
     
     // Hole through back wall for mating face
     translate([x_wall_inner - pp_h/2, -case_d/2 + wall/2, z_center])
