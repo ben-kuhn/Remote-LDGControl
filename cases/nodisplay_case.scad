@@ -1,5 +1,5 @@
 // Remote Unit Case for LDG Controller
-// Project box: ESP32 + breakout on floor nut traps, PowerPole side-wall pocket,
+// Project box: ESP32 on floor nut traps, PowerPole back-wall pocket with pin,
 // cable notch with screw-down strain relief clamp on lid.
 
 include <common.scad>
@@ -25,9 +25,8 @@ esp32_x_off    = -20;
 
 screw_inset    = 8;
 
-pp_boss_depth  = 6;
-pp_ear_w       = 4;
-pp_pin_from_wall = 5;
+pp_pocket_depth = 10;
+pp_pin_d        = 2;
 
 // ============================================================================
 // HELPERS
@@ -42,13 +41,10 @@ function screw_positions() = [
 // ============================================================================
 module remote_base() {
     difference() {
-        union() {
-            box_shell();
-            powerpole_pocket_boss();
-        }
+        box_shell();
 
         esp32_nut_traps();
-        powerpole_side_pocket();
+        powerpole_back_pocket();
         cable_notch();
 
         translate([-case_w/2 + wall/2, 0, case_h * 0.65])
@@ -113,29 +109,19 @@ module lid_nut_traps() {
 }
 
 // ============================================================================
-// POWERPOLE SIDE-WALL POCKET (right wall, connector rotated 90°)
+// POWERPOLE BACK-WALL POCKET
 // ============================================================================
-module powerpole_pocket_boss() {
-    conn_w = pp_h + 2*tol;
-    conn_h = pp_w + 2*tol;
-    z_center = floor_t + conn_h/2 + 2;
+module powerpole_back_pocket() {
+    pocket_w = pp_w + 2*tol;
+    pocket_h = pp_h + 2*tol;
+    z_center = floor_t + pocket_h/2 + 2;
 
-    translate([case_w/2 - wall - pp_boss_depth/2, 0, z_center])
-        cube([pp_boss_depth, conn_w + pp_ear_w*2, conn_h], center = true);
-}
+    translate([0, -case_d/2 + pp_pocket_depth/2, z_center])
+        cube([pocket_w, pp_pocket_depth + 0.1, pocket_h], center = true);
 
-module powerpole_side_pocket() {
-    conn_w = pp_h + 2*tol;
-    conn_h = pp_w + 2*tol;
-    pin_d = 2;
-    z_center = floor_t + conn_h/2 + 2;
-
-    translate([case_w/2 - wall/2, 0, z_center])
-        cube([wall + 0.2, conn_w, conn_h], center = true);
-
-    translate([case_w/2 - pp_pin_from_wall, 0, z_center])
+    translate([0, -case_d/2 + wall + pp_pocket_depth/2, z_center])
         rotate([90, 0, 0])
-            cylinder(d = pin_d, h = conn_w + pp_ear_w*2 + 2, $fn = 16, center = true);
+            cylinder(d = pp_pin_d, h = pp_pocket_depth + 2, $fn = 16, center = true);
 }
 
 // ============================================================================
