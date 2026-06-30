@@ -1,5 +1,5 @@
 // Remote Unit Case for LDG Controller
-// Project box: ESP32 on floor nut traps, PowerPole back-wall pocket with pin,
+// Project box: ESP32 on floor nut traps, PowerPole side-wall pocket with pin,
 // cable notch with screw-down strain relief clamp on lid.
 
 include <common.scad>
@@ -25,7 +25,7 @@ esp32_x_off    = -20;
 
 screw_inset    = 8;
 
-pp_pocket_depth = 10;
+pp_pocket_depth = 20;
 pp_pin_d        = 2;
 
 // ============================================================================
@@ -44,7 +44,7 @@ module remote_base() {
         box_shell();
 
         esp32_nut_traps();
-        powerpole_back_pocket();
+        powerpole_side_pocket();
         cable_notch();
 
         translate([-case_w/2 + wall/2, 0, case_h * 0.65])
@@ -109,19 +109,20 @@ module lid_nut_traps() {
 }
 
 // ============================================================================
-// POWERPOLE BACK-WALL POCKET
+// POWERPOLE SIDE-WALL POCKET
 // ============================================================================
-module powerpole_back_pocket() {
+module powerpole_side_pocket() {
     pocket_w = pp_w + 2*tol;
     pocket_h = pp_h + 2*tol;
     z_center = floor_t + pocket_h/2 + 2;
+    pocket_x = case_w/2 - wall - pp_pocket_depth/2;
 
-    translate([0, -case_d/2 + pp_pocket_depth/2, z_center])
-        cube([pocket_w, pp_pocket_depth + 0.1, pocket_h], center = true);
+    translate([pocket_x, 0, z_center])
+        cube([pp_pocket_depth, pocket_w, pocket_h], center = true);
 
-    translate([0, -case_d/2 + wall + pp_pocket_depth/2, z_center])
+    translate([pocket_x, 0, z_center])
         rotate([90, 0, 0])
-            cylinder(d = pp_pin_d, h = pp_pocket_depth + 2, $fn = 16, center = true);
+            cylinder(d = pp_pin_d, h = pocket_w + 2, $fn = 16, center = true);
 }
 
 // ============================================================================
