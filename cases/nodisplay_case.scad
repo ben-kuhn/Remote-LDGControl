@@ -1,5 +1,5 @@
 // Remote Unit Case for LDG Controller
-// Project box: ESP32 on floor nut traps, PowerPole side-wall pocket with pin,
+// Project box: ESP32 on floor nut traps, PowerPole floor pocket with screw retention,
 // cable notch with screw-down strain relief clamp on lid.
 
 include <common.scad>
@@ -25,16 +25,19 @@ esp32_x_off    = -20;
 
 screw_inset    = 8;
 
-pp_pocket_depth = 10;
 pp_conn_length  = 30;
-pp_pin_d        = 2;
 
 // ============================================================================
 // HELPERS
 // ============================================================================
+pp_pocket_x = case_w/2 - wall - pp_w/2 - 2;
+pp_pocket_y = case_d/2 - pp_conn_length/2;
+
 function screw_positions() = [
-    for (x = [-1, 1], y = [-1, 1])
-        [x * (case_w/2 - screw_inset), y * (case_d/2 - screw_inset)]
+    [-(case_w/2 - screw_inset), -(case_d/2 - screw_inset)],
+    [-(case_w/2 - screw_inset),  (case_d/2 - screw_inset)],
+    [ (case_w/2 - screw_inset), -(case_d/2 - screw_inset)],
+    [pp_pocket_x, pp_pocket_y]
 ];
 
 // ============================================================================
@@ -42,13 +45,10 @@ function screw_positions() = [
 // ============================================================================
 module remote_base() {
     difference() {
-        union() {
-            box_shell();
-            powerpole_pocket_boss();
-        }
+        box_shell();
 
         esp32_nut_traps();
-        powerpole_side_pocket();
+        powerpole_floor_pocket();
         cable_notch();
 
         translate([-case_w/2 + wall/2, 0, case_h * 0.65])
@@ -113,44 +113,22 @@ module lid_nut_traps() {
 }
 
 // ============================================================================
-// POWERPOLE SIDE-WALL POCKET
+// POWERPOLE FLOOR POCKET
 // ============================================================================
-module powerpole_pocket_boss() {
-    // Solid boss on inside of right wall for pocket to be cut into
-    boss_w = pp_pocket_depth + 2;
-    boss_l = 35;
-    boss_h = pp_w + 6;
+module powerpole_floor_pocket() {
+    // Connector flat against floor, long axis along Y, mating face at +Y (front)
+    // Pocket recess in floor, hole through front wall for mating face
+    // Screw passes through connector pin hole to secure it
     
-    z_center = floor_t + boss_h/2 + 2;
-    y_center = -case_d/2 + wall + boss_l/2;
-    x_wall_inner = case_w/2 - wall;
+    z_center = floor_t + pp_h/2;
     
-    translate([x_wall_inner - boss_w/2, y_center, z_center])
-        cube([boss_w, boss_l, boss_h], center = true);
-}
-
-module powerpole_side_pocket() {
-    // Connector sits flat against right side wall, long axis along Y
-    // Mating face at -Y end (back wall)
+    // Pocket recess in floor (pp_h deep into floor)
+    translate([pp_pocket_x, pp_pocket_y, floor_t - pp_h/2])
+        cube([pp_w + 2*tol, pp_conn_length + 2*tol, pp_h + 0.1], center = true);
     
-    conn_length = 30;
-    
-    z_center = floor_t + pp_w/2 + 2;
-    y_center = -case_d/2 + wall + conn_length/2;
-    x_wall_inner = case_w/2 - wall;
-    
-    // Pocket recess into side wall (from inside, 10mm deep)
-    translate([x_wall_inner - pp_pocket_depth/2, y_center, z_center])
-        cube([pp_pocket_depth, conn_length + 2*tol, pp_w + 2*tol], center = true);
-    
-    // Hole through back wall for mating face
-    translate([x_wall_inner - pp_h/2, -case_d/2 + wall/2, z_center])
-        cube([pp_h + 2*tol, wall + 0.2, pp_w + 2*tol], center = true);
-    
-    // Pin hole through connector body
-    translate([x_wall_inner - pp_pocket_depth/2, y_center, z_center])
-        rotate([0, 90, 0])
-            cylinder(d = pp_pin_d, h = pp_pocket_depth + pp_h + 2, $fn = 16, center = true);
+    // Hole through front wall for mating face
+    translate([pp_pocket_x, case_d/2 - wall/2, z_center])
+        cube([pp_w + 2*tol, wall + 0.2, pp_h + 2*tol], center = true);
 }
 
 // ============================================================================
