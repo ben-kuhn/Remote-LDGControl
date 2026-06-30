@@ -99,9 +99,9 @@ module esp32_nut_traps() {
 module embedded_nut_trap() {
     screw_clearance_h = floor_t - m3_nut_dep;
     translate([0, 0, -0.1])
-        cylinder(d = m3_dia, h = screw_clearance_h + 0.2, $fn = 24);
-    translate([0, 0, floor_t - m3_nut_dep])
         nut_trap(m3_nut_dep + 0.1);
+    translate([0, 0, m3_nut_dep])
+        cylinder(d = m3_dia, h = screw_clearance_h + 0.2, $fn = 24);
 }
 
 module cable_notch() {
