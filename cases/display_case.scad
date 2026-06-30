@@ -1,213 +1,186 @@
 // Display Unit Case for LDG Controller
-// Features angled front+top panel with dovetail hinge
-// Use OpenSCAD to render and export STL for 3D printing
+// Trapezoid side profile: tall back wall, short front wall.
+// ESP32 + breakout on the floor. Tilted front panel is the removable lid
+// with display screen cutout. PowerPole and signal cable at floor level on back.
 
 include <common.scad>
 
-// ============================================================================
-// DISPLAY CASE PARAMETERS
-// ============================================================================
 $fn = 50;
 
-// Calculated dimensions
-panel_length = disp_case_d / cos(tilt_angle);  // length along tilted surface
-panel_vertical_rise = disp_case_d * tan(tilt_angle);  // vertical rise from front to back
+// ============================================================================
+// PARAMETERS
+// ============================================================================
+disp_w       = 130;
+disp_d       = 120;
+disp_h_back  = 60;
+disp_h_front = 20;
+panel_t      = 3;
+corner_r     = 3;
+foot_dia     = 6;
+foot_depth   = 1;
+
+cable_hole_d = 10;
+clamp_z_center = floor_t + 2.5;
+
+panel_length = sqrt(pow(disp_d, 2) + pow(disp_h_back - disp_h_front, 2));
+tilt_angle   = atan((disp_h_back - disp_h_front) / disp_d);
+
+esp32_x_off    = -20;
+breakout_x_off = 20;
+esp32_standoff_h = 5;
 
 // ============================================================================
-// BASE (BOTTOM HALF)
+// BASE
 // ============================================================================
 module display_base() {
     difference() {
         union() {
-            // Wedge-shaped shell
-            wedge_shell();
-            
-            // Dovetail channel at front top
-            translate([0, -disp_case_d/2, disp_case_h_front]) {
-                rotate([90, 0, 0]) {
-                    dovetail_channel(disp_case_w - 2*wall, dt_num_fingers, dt_depth);
-                }
-            }
+            trapezoid_shell();
+
+            translate([esp32_x_off, 0, floor_t])
+                esp32_standoffs(esp32_standoff_h);
+
+            translate([breakout_x_off, 0, floor_t])
+                esp32_standoffs(esp32_standoff_h);
         }
-        
-        // Hollow interior
-        translate([0, 0, floor_t]) {
-            wedge_interior();
-        }
-        
-        // Nut traps at back top (for lid screws)
-        translate([-disp_case_w/4, disp_case_d/2 - wall, disp_case_h_back - m3_nut_dep]) {
-            nut_trap(m3_nut_dep + 0.1);
-        }
-        translate([disp_case_w/4, disp_case_d/2 - wall, disp_case_h_back - m3_nut_dep]) {
-            nut_trap(m3_nut_dep + 0.1);
-        }
-        
-        // PowerPole pocket on back wall
-        translate([0, disp_case_d/2 - wall/2, disp_case_h_back/2]) {
-            rotate([90, 0, 0]) {
+
+        trapezoid_interior();
+
+        translate([-20, -disp_d/2 + wall/2, floor_t + pp_h/2])
+            rotate([90, 0, 0])
                 powerpole_pocket();
-            }
-        }
-        
-        // Cable hole on back wall
-        translate([disp_case_w/4, disp_case_d/2 - wall/2, disp_case_h_back/3]) {
-            rotate([90, 0, 0]) {
-                cable_grommet_hole(10);
-            }
-        }
-        
-        // Vent slots on left side
-        translate([-disp_case_w/2 + wall/2, 0, disp_case_h_back/2]) {
-            rotate([0, 90, 0]) {
-                vent_slots(4, vent_spacing, vent_slot_l, vent_slot_w);
-            }
-        }
-        
-        // Vent slots on right side
-        translate([disp_case_w/2 - wall/2, 0, disp_case_h_back/2]) {
-            rotate([0, 90, 0]) {
-                vent_slots(4, vent_spacing, vent_slot_l, vent_slot_w);
-            }
-        }
-        
-        // Rubber feet recesses on bottom
-        translate([-disp_case_w/3, -disp_case_d/3, 0]) {
-            rubber_foot(rubber_foot_dia, rubber_foot_dep);
-        }
-        translate([disp_case_w/3, -disp_case_d/3, 0]) {
-            rubber_foot(rubber_foot_dia, rubber_foot_dep);
-        }
-        translate([-disp_case_w/3, disp_case_d/3, 0]) {
-            rubber_foot(rubber_foot_dia, rubber_foot_dep);
-        }
-        translate([disp_case_w/3, disp_case_d/3, 0]) {
-            rubber_foot(rubber_foot_dia, rubber_foot_dep);
-        }
-    }
-    
-    // ESP32 standoffs inside
-    translate([0, -disp_case_d/4, floor_t]) {
-        esp32_standoffs(5);
+
+        translate([20, -disp_d/2 + wall/2, floor_t + cable_hole_d/2])
+            rotate([90, 0, 0])
+                cylinder(d = cable_hole_d, h = wall + 0.2, $fn = 32);
+
+        translate([-disp_w/2 + wall/2, 0, disp_h_back * 0.4])
+            rotate([0, 90, 0])
+                vent_slots(4, 5, 15, 3);
+
+        translate([disp_w/2 - wall/2, 0, disp_h_back * 0.4])
+            rotate([0, 90, 0])
+                vent_slots(4, 5, 15, 3);
+
+        for (x = [-1, 1], y = [-1, 1])
+            translate([x * (disp_w/2 - 12), y * (disp_d/2 - 12), -0.1])
+                rubber_foot(foot_dia, foot_depth);
+
+        back_screw_holes();
+        clamp_mount_holes();
     }
 }
 
-// Wedge-shaped outer shell
-module wedge_shell() {
-    // Create wedge by extruding a trapezoidal profile
-    linear_extrude(height = disp_case_w, center = true, convexity = 10) {
+module trapezoid_shell() {
+    linear_extrude(height = disp_w, center = true, convexity = 10)
         polygon([
-            [-disp_case_d/2, 0],
-            [disp_case_d/2, 0],
-            [disp_case_d/2, disp_case_h_back],
-            [-disp_case_d/2, disp_case_h_front]
+            [-disp_d/2, 0],
+            [ disp_d/2, 0],
+            [ disp_d/2, disp_h_front],
+            [-disp_d/2, disp_h_back]
         ]);
-    }
 }
 
-// Wedge-shaped interior (for hollowing)
-module wedge_interior() {
-    linear_extrude(height = disp_case_w - 2*wall, center = true, convexity = 10) {
-        polygon([
-            [-disp_case_d/2 + wall, 0],
-            [disp_case_d/2 - wall, 0],
-            [disp_case_d/2 - wall, disp_case_h_back - floor_t],
-            [-disp_case_d/2 + wall, disp_case_h_front - floor_t]
-        ]);
-    }
+module trapezoid_interior() {
+    translate([0, 0, floor_t])
+        linear_extrude(height = disp_w - 2*wall, center = true, convexity = 10)
+            polygon([
+                [-(disp_d - 2*wall)/2, 0],
+                [ (disp_d - 2*wall)/2, 0],
+                [ (disp_d - 2*wall)/2, disp_h_front - wall],
+                [-(disp_d - 2*wall)/2, disp_h_back  - wall]
+            ]);
+}
+
+module back_screw_holes() {
+    for (x = [-disp_w/4, disp_w/4])
+        translate([x, -disp_d/2 + wall/2, disp_h_back - 8])
+            rotate([90, 0, 0])
+                cylinder(d = m3_dia, h = wall + 1, $fn = 24);
+}
+
+module clamp_mount_holes() {
+    for (x = [20 - 8, 20 + 8])
+        translate([x, -disp_d/2 - 0.1, clamp_z_center])
+            rotate([90, 0, 0])
+                cylinder(d = m3_dia, h = wall + 0.2, $fn = 24);
 }
 
 // ============================================================================
-// FRONT+TOP PANEL (TOP HALF)
+// STRAIN RELIEF CLAMP (same as remote case)
 // ============================================================================
-module display_front_top() {
+module strain_relief_clamp() {
+    clamp_w = 30;
+    clamp_d = 18;
+    clamp_h = 5;
+    groove_d = 6;
+
     difference() {
-        union() {
-            // Main panel (tilted)
-            translate([0, -disp_case_d/2, disp_case_h_front]) {
-                rotate([-tilt_angle, 0, 0]) {
-                    // Flat panel
-                    translate([0, panel_length/2, 0]) {
-                        cube([disp_case_w, panel_length, wall], center = true);
-                    }
-                }
-            }
-            
-            // Dovetail tongue at bottom edge
-            translate([0, -disp_case_d/2, disp_case_h_front]) {
-                rotate([90 - tilt_angle, 0, 0]) {
-                    dovetail_tongue(disp_case_w - 2*wall, dt_num_fingers, dt_depth);
-                }
-            }
-        }
-        
-        // M3 clearance holes at top edge
-        translate([-disp_case_w/4, disp_case_d/2 - wall, disp_case_h_back]) {
-            rotate([-tilt_angle, 0, 0]) {
-                screw_hole(wall + 0.1, countersink = true);
-            }
-        }
-        translate([disp_case_w/4, disp_case_d/2 - wall, disp_case_h_back]) {
-            rotate([-tilt_angle, 0, 0]) {
-                screw_hole(wall + 0.1, countersink = true);
-            }
-        }
-        
-        // Display PCB recess (on inside face)
-        translate([0, -disp_case_d/2 + panel_length/2 * cos(tilt_angle), 
-                   disp_case_h_front + panel_length/2 * sin(tilt_angle)]) {
-            rotate([-tilt_angle, 0, 0]) {
-                translate([0, 0, wall/2]) {
-                    display_pcb_recess(2);
-                }
-            }
-        }
-        
-        // Display screen cutout (on outside face)
-        translate([0, -disp_case_d/2 + panel_length/2 * cos(tilt_angle), 
-                   disp_case_h_front + panel_length/2 * sin(tilt_angle)]) {
-            rotate([-tilt_angle, 0, 0]) {
-                translate([0, 0, -wall/2 - 0.1]) {
-                    display_screen_cutout();
-                }
-            }
+        cube([clamp_w, clamp_d, clamp_h], center = true);
+
+        rotate([90, 0, 0])
+            cylinder(d = groove_d, h = clamp_d + 2, $fn = 24, center = true);
+
+        translate([0, 0, -0.1]) {
+            for (x = [-8, 8])
+                translate([x, 0, 0])
+                    cylinder(d = m3_dia, h = clamp_h + 0.2, $fn = 24);
         }
     }
-    
-    // Display standoffs (on inside face)
-    translate([0, -disp_case_d/2 + panel_length/2 * cos(tilt_angle), 
-               disp_case_h_front + panel_length/2 * sin(tilt_angle)]) {
-        rotate([-tilt_angle, 0, 0]) {
-            translate([0, 0, wall/2]) {
-                display_standoffs(3);
-            }
-        }
+}
+
+// ============================================================================
+// TILTED PANEL (REMOVABLE LID)
+// ============================================================================
+module display_panel() {
+    difference() {
+        panel_body();
+
+        translate([0, 0, -panel_t/2 - 0.1])
+            display_screen_cutout();
+
+        translate([0, 0, panel_t/2 - 1.5])
+            display_pcb_recess(2);
+
+        panel_screw_holes();
     }
+
+    translate([0, 0, panel_t/2])
+        display_standoffs(3);
+}
+
+module panel_body() {
+    translate([0, -disp_d/2, disp_h_back])
+        rotate([tilt_angle, 0, 0])
+            translate([0, panel_length/2, 0])
+                cube([disp_w, panel_length, panel_t], center = true);
+}
+
+module panel_screw_holes() {
+    translate([0, -disp_d/2, disp_h_back])
+        rotate([tilt_angle, 0, 0])
+            for (x = [-disp_w/4, disp_w/4])
+                translate([x, -panel_length/2 + 8, -panel_t/2 - 0.1])
+                    cylinder(d = m3_dia, h = panel_t + 0.2, $fn = 24);
 }
 
 // ============================================================================
 // ASSEMBLY PREVIEW
 // ============================================================================
-module display_case_assembly() {
-    color("LightBlue", 0.7) {
-        display_base();
-    }
-    
-    color("LightGreen", 0.7) {
-        display_front_top();
-    }
+module display_assembly() {
+    color("LightBlue", 0.7) display_base();
+    color("LightGreen", 0.7) display_panel();
+
+    color("Orange", 0.7)
+        translate([20, -disp_d/2 - 9, clamp_z_center])
+            strain_relief_clamp();
 }
 
 // ============================================================================
 // RENDER SELECTION
 // ============================================================================
-// Uncomment the part you want to render:
 
-// Render base for 3D printing (print upside-down)
 display_base();
-
-// Render front+top panel for 3D printing (print right-side-up)
-// display_front_top();
-
-// Render assembly preview
-// display_case_assembly();
+// display_panel();
+// strain_relief_clamp();
+// display_assembly();
