@@ -115,10 +115,12 @@ module powerpole_side_pocket() {
     pocket_w = pp_w + 2*tol;
     pocket_h = pp_h + 2*tol;
     z_center = floor_t + pocket_h/2 + 2;
-    pocket_x = case_w/2 - wall - pp_pocket_depth/2;
+    
+    total_depth = wall + pp_pocket_depth;
+    pocket_x = case_w/2 - total_depth/2;
 
     translate([pocket_x, 0, z_center])
-        cube([pp_pocket_depth, pocket_w, pocket_h], center = true);
+        cube([total_depth + 0.1, pocket_w, pocket_h], center = true);
 
     translate([pocket_x, 0, z_center])
         rotate([90, 0, 0])
