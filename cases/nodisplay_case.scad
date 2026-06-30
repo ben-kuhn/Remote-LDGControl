@@ -26,6 +26,7 @@ esp32_x_off    = -20;
 screw_inset    = 8;
 
 pp_conn_length  = 30;
+pp_seat_depth   = 2;
 
 // ============================================================================
 // HELPERS
@@ -116,18 +117,15 @@ module lid_nut_traps() {
 // POWERPOLE FLOOR POCKET
 // ============================================================================
 module powerpole_floor_pocket() {
-    // Connector flat against floor, long axis along Y, mating face at +Y (front)
-    // Pocket recess in floor, hole through front wall for mating face
-    // Screw passes through connector pin hole to secure it
+    // Connector flat on floor, long axis along Y, mating face at +Y (front)
+    // Shallow recess in floor to locate it, hole through front wall for mating face
     
-    z_center = floor_t + pp_h/2;
+    // Shallow recess in floor (pp_seat_depth deep)
+    translate([pp_pocket_x, pp_pocket_y, floor_t - pp_seat_depth/2])
+        cube([pp_w + 2*tol, pp_conn_length + 2*tol, pp_seat_depth + 0.1], center = true);
     
-    // Pocket recess in floor (pp_h deep into floor)
-    translate([pp_pocket_x, pp_pocket_y, floor_t - pp_h/2])
-        cube([pp_w + 2*tol, pp_conn_length + 2*tol, pp_h + 0.1], center = true);
-    
-    // Hole through front wall for mating face
-    translate([pp_pocket_x, case_d/2 - wall/2, z_center])
+    // Hole through front wall for mating face (connector sits on floor, so center at floor_t + pp_h/2)
+    translate([pp_pocket_x, case_d/2 - wall/2, floor_t + pp_h/2])
         cube([pp_w + 2*tol, wall + 0.2, pp_h + 2*tol], center = true);
 }
 
