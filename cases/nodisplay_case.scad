@@ -25,7 +25,8 @@ esp32_x_off    = -20;
 
 screw_inset    = 8;
 
-pp_pocket_depth = 20;
+pp_pocket_depth = 4;
+pp_conn_length  = 30;
 pp_pin_d        = 2;
 
 // ============================================================================
@@ -112,19 +113,25 @@ module lid_nut_traps() {
 // POWERPOLE SIDE-WALL POCKET
 // ============================================================================
 module powerpole_side_pocket() {
-    pocket_w = pp_w + 2*tol;
-    pocket_h = pp_h + 2*tol;
-    z_center = floor_t + pocket_h/2 + 2;
+    // Connector flat against right side wall, mating face toward back wall
+    // 30mm length along Y, 16.8mm width along Z, 8.5mm height along X
     
-    total_depth = wall + pp_pocket_depth;
-    pocket_x = case_w/2 - total_depth/2;
-
-    translate([pocket_x, 0, z_center])
-        cube([total_depth + 0.1, pocket_w, pocket_h], center = true);
-
-    translate([pocket_x, 0, z_center])
-        rotate([90, 0, 0])
-            cylinder(d = pp_pin_d, h = pocket_w + 2, $fn = 16, center = true);
+    z_center = floor_t + pp_w/2 + 2;
+    y_center = -case_d/2 + wall + pp_conn_length/2;
+    x_wall_inner = case_w/2 - wall;
+    
+    // Pocket recess into side wall
+    translate([x_wall_inner - pp_pocket_depth/2, y_center, z_center])
+        cube([pp_pocket_depth + 0.1, pp_conn_length + 2*tol, pp_w + 2*tol], center = true);
+    
+    // Hole through back wall for mating face
+    translate([x_wall_inner - pp_h/2, -case_d/2 + wall/2, z_center])
+        cube([pp_h + 2*tol, wall + 0.2, pp_w + 2*tol], center = true);
+    
+    // Pin hole through connector body
+    translate([x_wall_inner - pp_pocket_depth/2, y_center, z_center])
+        rotate([0, 90, 0])
+            cylinder(d = pp_pin_d, h = pp_pocket_depth + pp_h + 2, $fn = 16, center = true);
 }
 
 // ============================================================================
