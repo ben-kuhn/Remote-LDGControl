@@ -3,6 +3,24 @@
 #include "config.h"
 #include <driver/uart.h>
 
+namespace {
+// RAII scoped acquire of the TunerProtocol mutex. Blocks indefinitely by
+// default (control-command path); pass timeout=0 for the non-blocking try
+// used by process(). The mutex is recursive because waitForResponse()
+// internally calls process() from within an already-locked high-level
+// method — without recursion the inner take would fail and we'd never
+// read the response bytes off the UART.
+struct TunerLock {
+    SemaphoreHandle_t m;
+    bool held;
+    TunerLock(SemaphoreHandle_t mux, TickType_t timeout = portMAX_DELAY) : m(mux) {
+        held = (m && xSemaphoreTakeRecursive(m, timeout) == pdTRUE);
+    }
+    ~TunerLock() { if (held && m) xSemaphoreGiveRecursive(m); }
+    explicit operator bool() const { return held; }
+};
+}
+
 TunerProtocol::TunerProtocol()
     : m_serial(nullptr),
       m_meterCallback(nullptr),
@@ -14,19 +32,20 @@ TunerProtocol::TunerProtocol()
       m_connected(false),
       m_meterActive(false),
       m_pendingResponse(0),
-      m_waitingForResponse(false)
+      m_waitingForResponse(false),
+      m_mutex(nullptr)
 {
     memset(&m_meterData, 0, sizeof(tuner_meter_t));
     memset(m_meterBuf, 0, sizeof(m_meterBuf));
 }
 
 TunerProtocol::~TunerProtocol() {
-    if (m_serial) {
-        delete m_serial;
-    }
+    if (m_serial) delete m_serial;
+    if (m_mutex)  vSemaphoreDelete(m_mutex);
 }
 
 bool TunerProtocol::begin(uint8_t rxPin, uint8_t txPin, uint32_t baud) {
+    m_mutex = xSemaphoreCreateRecursiveMutex();
     m_serial = new HardwareSerial(TUNER_UART_NUM);
     m_serial->begin(baud, SERIAL_8N1, rxPin, txPin);
     m_connected = true;
@@ -97,6 +116,8 @@ char TunerProtocol::waitForResponse(uint32_t timeoutMs) {
 }
 
 bool TunerProtocol::toggleAntenna() {
+    TunerLock lock(m_mutex);
+    if (!lock) return false;
     switchToControlMode();
     char resp = ' ';
     if (sendCommand(TUNER_CMD_TOGGLE_ANT)) {
@@ -114,6 +135,8 @@ bool TunerProtocol::toggleAntenna() {
 }
 
 bool TunerProtocol::memoryTune() {
+    TunerLock lock(m_mutex);
+    if (!lock) return false;
     switchToControlMode();
     char resp = ' ';
     if (sendCommand(TUNER_CMD_MEM_TUNE)) {
@@ -124,6 +147,8 @@ bool TunerProtocol::memoryTune() {
 }
 
 bool TunerProtocol::fullTune() {
+    TunerLock lock(m_mutex);
+    if (!lock) return false;
     switchToControlMode();
     char resp = ' ';
     if (sendCommand(TUNER_CMD_FULL_TUNE)) {
@@ -134,6 +159,8 @@ bool TunerProtocol::fullTune() {
 }
 
 bool TunerProtocol::bypass() {
+    TunerLock lock(m_mutex);
+    if (!lock) return false;
     switchToControlMode();
     char resp = ' ';
     if (sendCommand(TUNER_CMD_BYPASS)) {
@@ -148,6 +175,8 @@ bool TunerProtocol::bypass() {
 }
 
 bool TunerProtocol::setAutoMode() {
+    TunerLock lock(m_mutex);
+    if (!lock) return false;
     switchToControlMode();
     char resp = ' ';
     if (sendCommand(TUNER_CMD_AUTO_MODE)) {
@@ -162,6 +191,8 @@ bool TunerProtocol::setAutoMode() {
 }
 
 bool TunerProtocol::setManualMode() {
+    TunerLock lock(m_mutex);
+    if (!lock) return false;
     switchToControlMode();
     char resp = ' ';
     if (sendCommand(TUNER_CMD_MANUAL_MODE)) {
@@ -176,6 +207,8 @@ bool TunerProtocol::setManualMode() {
 }
 
 bool TunerProtocol::sync() {
+    TunerLock lock(m_mutex);
+    if (!lock) return false;
     switchToControlMode();
     char resp = ' ';
     if (sendCommand(TUNER_CMD_SYNC)) {
@@ -186,6 +219,10 @@ bool TunerProtocol::sync() {
 }
 
 bool TunerProtocol::startMeter() {
+    // begin() invokes this before m_mutex is created, and again after creation
+    // via the public API. The TunerLock helper no-ops on a null mutex, so this
+    // is safe in both paths.
+    TunerLock lock(m_mutex);
     bool result = sendCommand(TUNER_CMD_METER_START);
     if (result) {
         m_meterActive = true;
@@ -195,6 +232,7 @@ bool TunerProtocol::startMeter() {
 }
 
 bool TunerProtocol::stopMeter() {
+    TunerLock lock(m_mutex);
     bool result = sendCommand(TUNER_CMD_METER_STOP);
     if (result) {
         m_meterActive = false;
@@ -311,6 +349,11 @@ void TunerProtocol::publishMeterData() {
 
 void TunerProtocol::process() {
     if (!m_serial || !m_connected) return;
+    // Non-blocking try: if a high-level command (toggle, tune, ...) is mid-
+    // flight on another task, skip this tick. Meter bytes stay in UART2's
+    // RX FIFO and we'll drain them next call.
+    TunerLock lock(m_mutex, 0);
+    if (m_mutex && !lock) return;
 
     while (m_serial->available()) {
         uint8_t b = m_serial->read();

@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 #include <HardwareSerial.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 // Command bytes (single ASCII characters)
 #define TUNER_CMD_WAKE          ' '
@@ -158,6 +160,16 @@ private:
     // Response handling
     volatile char m_pendingResponse;
     bool m_waitingForResponse;
+
+    // Mutex protecting UART access from main and webServer FreeRTOS tasks.
+    // Held by every high-level command (toggleAntenna, memoryTune, ...) for
+    // the duration of its switchToControlMode → sendCommand → waitForResponse
+    // → switchToMeterMode sequence so meter-mode bytes can't interleave with
+    // control-mode responses. process() uses a non-blocking acquire: if the
+    // mutex is busy, this tick's meter parse is skipped and bytes stay in the
+    // UART RX FIFO until the next call — UART2's 256-byte buffer is plenty
+    // for a worst-case command (~1.5s).
+    SemaphoreHandle_t m_mutex;
 };
 
 #endif // TUNER_PROTOCOL_H

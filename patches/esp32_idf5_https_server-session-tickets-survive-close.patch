@@ -1,0 +1,19 @@
+--- a/src/HTTPSConnection.cpp	2026-06-11 07:47:46.296205704 -0500
++++ b/src/HTTPSConnection.cpp	2026-06-11 07:47:57.750504652 -0500
+@@ -74,7 +74,15 @@
+ 
+   // Try to tear down SSL while we are in the _shutdownTS timeout period or if an error occurred
+   if (_ssl) {
+-    esp_tls_cfg_server_session_tickets_free(_cfg);
++    // LOCAL PATCH (Remote-LDGControl): do NOT free the server-wide session-ticket
++    // context here. esp_tls_cfg_server_session_tickets_free() destroys the
++    // ticket-decryption key stored on the shared _cfg, which makes every
++    // browser's saved ticket from a prior session undecryptable on the next
++    // connection — falling back to a full handshake (~6 s on ESP32 with the
++    // self-signed cert) every time. The init in initialize() is idempotent
++    // (returns INVALID_ARG when already initialized), so leaving the ticket
++    // context alive across connections is what enables actual resumption.
++    // Ticket context lives until the HTTPSServer object is destroyed.
+     esp_tls_server_session_delete(_ssl);
+     _ssl = NULL;
+     _connectionState = STATE_ERROR;

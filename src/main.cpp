@@ -145,6 +145,12 @@ void onRemoteStatus(bool connected) {
 void onMeterUpdate(const tuner_meter_t* meter) {
     if (usingRemoteTuner) return;
 
+    // Push directly into the SSE state from the main task so subscribers keep
+    // getting fresh readings even when the web-server task is currently inside
+    // a long-running SSE handler (webServer.loop()'s own 500 ms poll can't
+    // fire while a handler holds the slot).
+    webServer.pushMeterEvent(meter);
+
 #ifdef WITH_DISPLAY
     display.updateMeter(meter);
     display.updateStatus(tuner.getMode(), tuner.getAntenna());
@@ -386,6 +392,22 @@ void setup() {
         Serial.println("ERROR: web server failed to start - port 443 may still be bound");
     }
 
+    // Spin the runtime HTTPS server on a dedicated FreeRTOS task so its
+    // handlers — especially the long-running SSE stream — cannot block
+    // loop()'s tuner.process(). Without this, an active SSE subscriber
+    // freezes the meter and queues every POST behind itself until the
+    // SSE session cap fires. UART access shared between this task and
+    // loop() is serialized by TunerProtocol's mutex. The 16 KB stack is
+    // generous; SSE handler + ArduinoJson + mbedtls peaks ~6 KB.
+    xTaskCreatePinnedToCore(
+        [](void*) {
+            for (;;) {
+                webServer.loop();
+                vTaskDelay(pdMS_TO_TICKS(1));
+            }
+        },
+        "webServer", 16384, NULL, 5, NULL, 1);
+
     Serial.println("=== System Ready ===");
 }
 
@@ -438,7 +460,7 @@ void loop() {
         }
     }
 
-    webServer.loop();
+    // webServer.loop() is now driven by its own FreeRTOS task; see setup().
 
 #ifdef WITH_DISPLAY
     connectRemoteUnit();

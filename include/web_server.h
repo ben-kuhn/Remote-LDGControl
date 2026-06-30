@@ -42,6 +42,7 @@ private:
     meter_getter_t m_meterGetter;
     remote_telemetry_handler_t m_remoteTelemetryHandler;
     uint32_t m_lastMeterUpdate;
+    uint32_t m_lastWsMeterSeq = 0;  // last meterSeq broadcast to WS subscribers
 };
 
 #endif // WEB_SERVER_H

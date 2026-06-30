@@ -1,0 +1,24 @@
+--- a/src/HTTPResponse.hpp	2026-06-11 08:36:29.132384964 -0500
++++ b/src/HTTPResponse.hpp	2026-06-11 08:36:52.993918127 -0500
+@@ -46,14 +46,19 @@
+ 
+   bool isResponseBuffered();
+   void finalize();
++  // LOCAL PATCH (Remote-LDGControl): drainBuffer made public so the WS
++  // handshake path can flush headers WITHOUT injecting Content-Length: 0.
++  // finalize() always adds Content-Length, which browsers reject on a
++  // 101 Switching Protocols response (curl/Python websockets accept it,
++  // hence the bug being invisible from CLI tests).
++  void drainBuffer(bool onOverflow = false);
+ 
+   ConnectionContext * _con;
+-  
++
+ private:
+   void printHeader();
+   void printInternal(const std::string &str, bool skipBuffer = false);
+   size_t writeBytesInternal(const void * data, int length, bool skipBuffer = false);
+-  void drainBuffer(bool onOverflow = false);
+ 
+   uint16_t _statusCode;
+   std::string _statusText;
