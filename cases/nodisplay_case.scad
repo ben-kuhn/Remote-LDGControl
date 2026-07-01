@@ -190,7 +190,7 @@ module strain_relief_clamp() {
     foot_d = 8;
     foot_t = 3;
     arch_span = 20;
-    arch_height = 12;
+    arch_height = 8;
     arch_thickness = 3;
     
     translate([0, clamp_y_center, 0]) {
@@ -204,20 +204,11 @@ module strain_relief_clamp() {
                 translate([arch_span/2, 0, foot_t/2])
                     cube([foot_w, foot_d, foot_t], center = true);
                 
-                // Arch using hull between cylinders
-                hull() {
-                    // Left side of arch
-                    translate([-arch_span/2, 0, foot_t])
-                        rotate([90, 0, 0])
-                            cylinder(d = arch_thickness, h = foot_d, center = true);
-                    
-                    // Right side of arch
-                    translate([arch_span/2, 0, foot_t])
-                        rotate([90, 0, 0])
-                            cylinder(d = arch_thickness, h = foot_d, center = true);
-                    
-                    // Top of arch
-                    translate([0, 0, arch_height])
+                // Thin arch strap
+                for (angle = [0:10:180]) {
+                    x = -arch_span/2 + (arch_span * angle / 180);
+                    z = foot_t + arch_height * sin(angle);
+                    translate([x, 0, z])
                         rotate([90, 0, 0])
                             cylinder(d = arch_thickness, h = foot_d, center = true);
                 }
