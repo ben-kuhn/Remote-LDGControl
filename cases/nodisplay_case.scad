@@ -30,8 +30,8 @@ pp_wall_t       = 2;
 pp_ceiling_t    = 2;
 
 clamp_w = 30;
-clamp_d = 18;
-clamp_h = 8;
+clamp_d = 20;
+clamp_h = 10;
 groove_d = 6;
 
 // ============================================================================
@@ -156,6 +156,8 @@ module powerpole_front_hole() {
 // LID
 // ============================================================================
 module remote_lid() {
+    clamp_y_center = case_d/2 - wall - notch_w/2;
+    
     difference() {
         linear_extrude(lid_t)
             rounded_rect(case_w, case_d, corner_r);
@@ -165,13 +167,13 @@ module remote_lid() {
 
         corner_screw_holes(lid_t + 1);
 
-        translate([0, case_d/2 - 15, -0.1]) {
+        translate([0, clamp_y_center, -0.1]) {
             for (x = [-8, 8])
                 translate([x, 0, 0])
                     cylinder(d = m3_dia, h = lid_t + 0.2, $fn = 24);
         }
 
-        translate([0, case_d/2 - 15, lid_t - m3_nut_dep]) {
+        translate([0, clamp_y_center, lid_t - m3_nut_dep]) {
             for (x = [-8, 8])
                 translate([x, 0, 0])
                     nut_trap(m3_nut_dep + 0.1);
@@ -183,15 +185,17 @@ module remote_lid() {
 // STRAIN RELIEF CLAMP
 // ============================================================================
 module strain_relief_clamp() {
+    clamp_y_center = case_d/2 - wall - notch_w/2;
+    
     difference() {
-        translate([0, case_d/2 - 15, 0])
+        translate([0, clamp_y_center, 0])
             cube([clamp_w, clamp_d, clamp_h], center = true);
 
-        translate([0, case_d/2 - 15, -clamp_h/2 + groove_d/2 + 0.1])
+        translate([0, clamp_y_center, -clamp_h/2 + groove_d/2 + 0.1])
             rotate([90, 0, 0])
                 cylinder(d = groove_d, h = clamp_d, $fn = 24, center = true);
 
-        translate([0, case_d/2 - 15, -0.1]) {
+        translate([0, clamp_y_center, -0.1]) {
             for (x = [-8, 8])
                 translate([x, 0, 0])
                     cylinder(d = m3_dia, h = clamp_h + 0.2, $fn = 24);
@@ -208,7 +212,7 @@ module remote_assembly() {
         translate([0, 0, case_h])
             remote_lid();
     color("Orange", 0.7)
-        translate([0, 0, case_h - clamp_h/2])
+        translate([0, 0, case_h - clamp_h/2 - 0.1])
             strain_relief_clamp();
 }
 
