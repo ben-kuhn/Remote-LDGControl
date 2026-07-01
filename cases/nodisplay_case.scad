@@ -26,7 +26,8 @@ esp32_x_off    = -20;
 screw_inset    = 8;
 
 pp_conn_length  = 30;
-pp_seat_depth   = 2;
+pp_wall_t       = 2;
+pp_ceiling_t    = 2;
 
 // ============================================================================
 // HELPERS
@@ -46,10 +47,13 @@ function screw_positions() = [
 // ============================================================================
 module remote_base() {
     difference() {
-        box_shell();
+        union() {
+            box_shell();
+            powerpole_enclosure();
+        }
 
         esp32_nut_traps();
-        powerpole_floor_pocket();
+        powerpole_front_hole();
         cable_notch();
 
         translate([-case_w/2 + wall/2, 0, case_h * 0.65])
@@ -114,17 +118,31 @@ module lid_nut_traps() {
 }
 
 // ============================================================================
-// POWERPOLE FLOOR POCKET
+// POWERPOLE ENCLOSURE
 // ============================================================================
-module powerpole_floor_pocket() {
-    // Connector flat on floor, long axis along Y, mating face at +Y (front)
-    // Shallow recess in floor to locate it, hole through front wall for mating face
+module powerpole_enclosure() {
+    // Walls and ceiling around the PowerPole connector
+    // Connector sits flush on floor, mating face at +Y (front)
     
-    // Shallow recess in floor (pp_seat_depth deep)
-    translate([pp_pocket_x, pp_pocket_y, floor_t - pp_seat_depth/2])
-        cube([pp_w + 2*tol, pp_conn_length + 2*tol, pp_seat_depth + 0.1], center = true);
+    // Left wall
+    translate([pp_pocket_x - pp_w/2 - pp_wall_t, pp_pocket_y - pp_conn_length/2, floor_t])
+        cube([pp_wall_t, pp_conn_length, pp_h + pp_ceiling_t]);
     
-    // Hole through front wall for mating face (connector sits on floor, so center at floor_t + pp_h/2)
+    // Right wall
+    translate([pp_pocket_x + pp_w/2, pp_pocket_y - pp_conn_length/2, floor_t])
+        cube([pp_wall_t, pp_conn_length, pp_h + pp_ceiling_t]);
+    
+    // Back wall
+    translate([pp_pocket_x - pp_w/2 - pp_wall_t, pp_pocket_y - pp_conn_length/2 - pp_wall_t, floor_t])
+        cube([pp_w + 2*pp_wall_t, pp_wall_t, pp_h + pp_ceiling_t]);
+    
+    // Ceiling
+    translate([pp_pocket_x - pp_w/2 - pp_wall_t, pp_pocket_y - pp_conn_length/2, floor_t + pp_h])
+        cube([pp_w + 2*pp_wall_t, pp_conn_length, pp_ceiling_t]);
+}
+
+module powerpole_front_hole() {
+    // Hole through front wall for mating face
     translate([pp_pocket_x, case_d/2 - wall/2, floor_t + pp_h/2])
         cube([pp_w + 2*tol, wall + 0.2, pp_h + 2*tol], center = true);
 }
