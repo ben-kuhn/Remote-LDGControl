@@ -186,32 +186,47 @@ module remote_lid() {
 // ============================================================================
 module strain_relief_clamp() {
     clamp_y_center = case_d/2 - wall - notch_w/2;
-    strap_w = 12;
-    strap_t = 3;
-    arch_h = 10;
-    screw_spacing = 20;
+    foot_w = 15;
+    foot_d = 8;
+    foot_t = 3;
+    arch_span = 20;
+    arch_height = 12;
+    arch_thickness = 3;
     
     translate([0, clamp_y_center, 0]) {
         difference() {
-            // Arch shape using hull
-            hull() {
-                // Left base
-                translate([-screw_spacing/2, 0, 0])
-                    cube([strap_t, strap_w, 0.1], center = true);
+            union() {
+                // Left foot
+                translate([-arch_span/2, 0, foot_t/2])
+                    cube([foot_w, foot_d, foot_t], center = true);
                 
-                // Right base
-                translate([screw_spacing/2, 0, 0])
-                    cube([strap_t, strap_w, 0.1], center = true);
+                // Right foot
+                translate([arch_span/2, 0, foot_t/2])
+                    cube([foot_w, foot_d, foot_t], center = true);
                 
-                // Top of arch
-                translate([0, 0, arch_h])
-                    cube([screw_spacing, strap_w, strap_t], center = true);
+                // Arch using hull between cylinders
+                hull() {
+                    // Left side of arch
+                    translate([-arch_span/2, 0, foot_t])
+                        rotate([90, 0, 0])
+                            cylinder(d = arch_thickness, h = foot_d, center = true);
+                    
+                    // Right side of arch
+                    translate([arch_span/2, 0, foot_t])
+                        rotate([90, 0, 0])
+                            cylinder(d = arch_thickness, h = foot_d, center = true);
+                    
+                    // Top of arch
+                    translate([0, 0, arch_height])
+                        rotate([90, 0, 0])
+                            cylinder(d = arch_thickness, h = foot_d, center = true);
+                }
             }
             
-            // Screw holes
-            for (x = [-screw_spacing/2, screw_spacing/2])
+            // Screw holes through feet
+            for (x = [-arch_span/2, arch_span/2])
                 translate([x, 0, -0.1])
-                    cylinder(d = m3_dia, h = arch_h + 0.2, $fn = 24);
+                    cylinder(d = m3_dia, h = foot_t + 0.2, $fn = 24);
         }
     }
 }
