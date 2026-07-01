@@ -186,19 +186,32 @@ module remote_lid() {
 // ============================================================================
 module strain_relief_clamp() {
     clamp_y_center = case_d/2 - wall - notch_w/2;
+    strap_w = 12;
+    strap_t = 3;
+    arch_h = 10;
+    screw_spacing = 20;
     
-    difference() {
-        translate([0, clamp_y_center, 0])
-            cube([clamp_w, clamp_d, clamp_h], center = true);
-
-        translate([0, clamp_y_center, -clamp_h/2 + groove_d/2 + 0.1])
-            rotate([90, 0, 0])
-                cylinder(d = groove_d, h = clamp_d, $fn = 24, center = true);
-
-        translate([0, clamp_y_center, -0.1]) {
-            for (x = [-8, 8])
-                translate([x, 0, 0])
-                    cylinder(d = m3_dia, h = clamp_h + 0.2, $fn = 24);
+    translate([0, clamp_y_center, 0]) {
+        difference() {
+            // Arch shape using hull
+            hull() {
+                // Left base
+                translate([-screw_spacing/2, 0, 0])
+                    cube([strap_t, strap_w, 0.1], center = true);
+                
+                // Right base
+                translate([screw_spacing/2, 0, 0])
+                    cube([strap_t, strap_w, 0.1], center = true);
+                
+                // Top of arch
+                translate([0, 0, arch_h])
+                    cube([screw_spacing, strap_w, strap_t], center = true);
+            }
+            
+            // Screw holes
+            for (x = [-screw_spacing/2, screw_spacing/2])
+                translate([x, 0, -0.1])
+                    cylinder(d = m3_dia, h = arch_h + 0.2, $fn = 24);
         }
     }
 }
