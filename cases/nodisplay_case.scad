@@ -186,11 +186,11 @@ module remote_lid() {
 // ============================================================================
 module strain_relief_clamp() {
     clamp_y_center = case_d/2 - wall - notch_w/2;
-    foot_w = 15;
-    foot_d = 8;
+    foot_w = 8;
+    foot_d = 15;
     foot_t = 3;
     arch_span = 20;
-    arch_height = 8;
+    arch_height = 4;
     arch_thickness = 3;
     
     translate([0, clamp_y_center, 0]) {
