@@ -106,8 +106,12 @@ module embedded_nut_trap() {
 }
 
 module cable_notch() {
-    translate([-case_w/4, case_d/2 - wall - 0.1, case_h - notch_depth])
-        cube([notch_w, wall + 0.2, notch_depth + 0.1], center = false);
+    foot_t = 3;
+    arch_height = 4;
+    arch_bottom_z = case_h - clamp_h/2 - 0.1 - foot_t - arch_height;
+    notch_height = case_h - arch_bottom_z + 0.1;
+    translate([0, case_d/2 - wall - 0.1, arch_bottom_z])
+        cube([notch_w, wall + 0.2, notch_height], center = false);
 }
 
 module corner_screw_holes(h) {
@@ -156,25 +160,24 @@ module powerpole_front_hole() {
 // LID
 // ============================================================================
 module remote_lid() {
-    clamp_x_center = -case_w/4;
     clamp_y_center = case_d/2 - wall - notch_w/2;
     
     difference() {
         linear_extrude(lid_t)
             rounded_rect(case_w, case_d, corner_r);
 
-        translate([-case_w/4, case_d/2 - wall - 0.1, lid_t - notch_depth])
-            cube([notch_w, wall + 0.2, notch_depth + 0.1], center = false);
+        translate([0, case_d/2 - wall - 0.1, -0.1])
+            cube([notch_w, wall + 0.2, lid_t + 0.2], center = false);
 
         corner_screw_holes(lid_t + 1);
 
-        translate([clamp_x_center, clamp_y_center, -0.1]) {
+        translate([0, clamp_y_center, -0.1]) {
             for (x = [-8, 8])
                 translate([x, 0, 0])
                     cylinder(d = m3_dia, h = lid_t + 0.2, $fn = 24);
         }
 
-        translate([clamp_x_center, clamp_y_center, lid_t - m3_nut_dep]) {
+        translate([0, clamp_y_center, lid_t - m3_nut_dep]) {
             for (x = [-8, 8])
                 translate([x, 0, 0])
                     nut_trap(m3_nut_dep + 0.1);
@@ -186,7 +189,6 @@ module remote_lid() {
 // STRAIN RELIEF CLAMP
 // ============================================================================
 module strain_relief_clamp() {
-    clamp_x_center = -case_w/4;
     clamp_y_center = case_d/2 - wall - notch_w/2;
     foot_w = 8;
     foot_d = 15;
@@ -196,7 +198,7 @@ module strain_relief_clamp() {
     arch_thickness = 3;
     screw_pad_d = 8;
     
-    translate([clamp_x_center, clamp_y_center, 0]) {
+    translate([0, clamp_y_center, 0]) {
         difference() {
             union() {
                 // Left foot with screw pad
