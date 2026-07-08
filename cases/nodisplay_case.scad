@@ -186,13 +186,13 @@ module remote_lid() {
 // ============================================================================
 module strain_relief_clamp() {
     clamp_y_center = case_d/2 - wall - notch_w/2;
-    foot_w = 8;
-    foot_d = 15;
+    foot_w = 6;
+    foot_d = 12;
     foot_t = 3;
-    arch_span = 20;
-    arch_height = 4;
-    arch_thickness = 3;
-    screw_pad_d = 8;
+    arch_span = 16;
+    arch_height = 2.5;
+    arch_thickness = 2;
+    screw_pad_d = 6;
     
     translate([0, clamp_y_center, 0]) {
         difference() {
@@ -200,14 +200,14 @@ module strain_relief_clamp() {
                 // Left foot with screw pad
                 translate([-arch_span/2, 0, -foot_t/2]) {
                     cube([foot_w, foot_d, foot_t], center = true);
-                    translate([0, 0, foot_t/2])
+                    translate([0, 0, -foot_t/2])
                         cylinder(d = screw_pad_d, h = foot_t, $fn = 24);
                 }
                 
                 // Right foot with screw pad
                 translate([arch_span/2, 0, -foot_t/2]) {
                     cube([foot_w, foot_d, foot_t], center = true);
-                    translate([0, 0, foot_t/2])
+                    translate([0, 0, -foot_t/2])
                         cylinder(d = screw_pad_d, h = foot_t, $fn = 24);
                 }
                 
