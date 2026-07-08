@@ -32,13 +32,13 @@ tft_hole_spacing_y = 55.5;
 tft_hole_dia       = 3.2;
 
 // NodeMCU ESP32S
-nodemcu_w    = 71.5;
-nodemcu_h    = 57.5;
+nodemcu_w    = 75;
+nodemcu_h    = 62;
 nodemcu_t    = 1.6;
 nodemcu_usb_w = 8;
 nodemcu_usb_h = 4;
-nodemcu_hole_x = 65;
-nodemcu_hole_y = 51;
+nodemcu_hole_x = 71.5;
+nodemcu_hole_y = 57.5;
 
 // ESP32 screw-terminal breakout board
 breakout_w = 58;
