@@ -214,10 +214,10 @@ module strain_relief_clamp() {
                 }
             }
             
-            // Screw holes through feet
+            // Screw holes through feet (tall enough to cut through arch material too)
             for (x = [-arch_span/2, arch_span/2])
                 translate([x, 0, -0.1])
-                    cylinder(d = m3_dia, h = foot_t + 0.2, $fn = 24);
+                    cylinder(d = m3_dia, h = foot_t + arch_height + arch_thickness + 0.2, $fn = 24);
         }
     }
 }
