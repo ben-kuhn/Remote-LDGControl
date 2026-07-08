@@ -21,7 +21,7 @@ foot_depth   = 1;
 notch_w      = 12;
 notch_depth  = 5;
 
-esp32_x_off    = -20;
+esp32_x_off    = 0;
 
 screw_inset    = 8;
 
