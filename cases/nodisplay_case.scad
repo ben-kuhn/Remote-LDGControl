@@ -106,7 +106,8 @@ module embedded_nut_trap() {
 }
 
 module cable_notch() {
-    translate([0, case_d/2 - wall - 0.1, case_h - notch_depth])
+    clamp_y_center = case_d/2 - wall - notch_w/2;
+    translate([0, clamp_y_center - wall/2, case_h - notch_depth])
         cube([notch_w, wall + 0.2, notch_depth + 0.1], center = false);
 }
 
@@ -162,7 +163,7 @@ module remote_lid() {
         linear_extrude(lid_t)
             rounded_rect(case_w, case_d, corner_r);
 
-        translate([0, case_d/2 - wall - 0.1, lid_t - notch_depth])
+        translate([0, clamp_y_center - wall/2, lid_t - notch_depth])
             cube([notch_w, wall + 0.2, notch_depth + 0.1], center = false);
 
         corner_screw_holes(lid_t + 1);
