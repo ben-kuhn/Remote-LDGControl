@@ -192,32 +192,39 @@ module strain_relief_clamp() {
     arch_span = 20;
     arch_height = 4;
     arch_thickness = 3;
+    screw_pad_d = 8;
     
     translate([0, clamp_y_center, 0]) {
         difference() {
             union() {
-                // Left foot
-                translate([-arch_span/2, 0, foot_t/2])
+                // Left foot with screw pad
+                translate([-arch_span/2, 0, -foot_t/2]) {
                     cube([foot_w, foot_d, foot_t], center = true);
+                    translate([0, 0, foot_t/2])
+                        cylinder(d = screw_pad_d, h = foot_t, $fn = 24);
+                }
                 
-                // Right foot
-                translate([arch_span/2, 0, foot_t/2])
+                // Right foot with screw pad
+                translate([arch_span/2, 0, -foot_t/2]) {
                     cube([foot_w, foot_d, foot_t], center = true);
+                    translate([0, 0, foot_t/2])
+                        cylinder(d = screw_pad_d, h = foot_t, $fn = 24);
+                }
                 
-                // Thin arch strap
+                // Thin arch strap (going down from feet)
                 for (angle = [0:10:180]) {
                     x = -arch_span/2 + (arch_span * angle / 180);
-                    z = foot_t + arch_height * sin(angle);
+                    z = -foot_t - arch_height * sin(angle);
                     translate([x, 0, z])
                         rotate([90, 0, 0])
                             cylinder(d = arch_thickness, h = foot_d, center = true);
                 }
             }
             
-            // Screw holes through feet (tall enough to cut through arch material too)
+            // Screw holes through feet and pads
             for (x = [-arch_span/2, arch_span/2])
-                translate([x, 0, -0.1])
-                    cylinder(d = m3_dia, h = foot_t + arch_height + arch_thickness + 0.2, $fn = 24);
+                translate([x, 0, -foot_t - arch_height - arch_thickness - 0.1])
+                    cylinder(d = m3_dia, h = foot_t*2 + arch_height + arch_thickness + 0.2, $fn = 24);
         }
     }
 }
