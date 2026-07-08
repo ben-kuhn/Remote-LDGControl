@@ -156,7 +156,7 @@ module powerpole_front_hole() {
 // LID
 // ============================================================================
 module remote_lid() {
-    clamp_y_center = case_d/2 - wall;
+    clamp_y_center = case_d/2 - wall - notch_w/2;
     
     difference() {
         linear_extrude(lid_t)
@@ -185,7 +185,7 @@ module remote_lid() {
 // STRAIN RELIEF CLAMP
 // ============================================================================
 module strain_relief_clamp() {
-    clamp_y_center = case_d/2 - wall;
+    clamp_y_center = case_d/2 - wall - notch_w/2;
     foot_w = 8;
     foot_d = 15;
     foot_t = 3;
