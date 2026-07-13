@@ -28,6 +28,8 @@ screw_inset    = 8;
 pp_conn_length  = 30;
 pp_wall_t       = 2;
 pp_ceiling_t    = 2;
+pp_back_lip     = 2;   // Retention lip hanging from ceiling at back (blocks housing, passes wires)
+pp_x_offset     = -3.4;  // Negative = closer to right wall, positions PP pocket away from ESP32
 
 clamp_w = 30;
 clamp_d = 20;
@@ -37,7 +39,7 @@ groove_d = 6;
 // ============================================================================
 // HELPERS
 // ============================================================================
-pp_pocket_x = case_w/2 - wall - pp_w/2 - 2;
+pp_pocket_x = case_w/2 - wall - pp_w/2 - pp_x_offset;
 pp_pocket_y = case_d/2 - pp_conn_length/2;
 
 function screw_positions() = [
@@ -137,9 +139,9 @@ module powerpole_enclosure() {
     translate([pp_pocket_x + pp_w/2, pp_pocket_y - pp_conn_length/2, floor_t])
         cube([pp_wall_t, pp_conn_length, pp_h + pp_ceiling_t]);
     
-    // Back wall
-    translate([pp_pocket_x - pp_w/2 - pp_wall_t, pp_pocket_y - pp_conn_length/2 - pp_wall_t, floor_t])
-        cube([pp_w + 2*pp_wall_t, pp_wall_t, pp_h + pp_ceiling_t]);
+    // Back retention lip (hangs from ceiling, blocks housing from sliding out, passes wires below)
+    translate([pp_pocket_x - pp_w/2 - pp_wall_t, pp_pocket_y - pp_conn_length/2 - pp_wall_t, floor_t + pp_h - pp_back_lip])
+        cube([pp_w + 2*pp_wall_t, pp_wall_t, pp_back_lip + pp_ceiling_t]);
     
     // Ceiling
     translate([pp_pocket_x - pp_w/2 - pp_wall_t, pp_pocket_y - pp_conn_length/2, floor_t + pp_h])
