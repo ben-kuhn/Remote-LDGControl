@@ -9,7 +9,7 @@ $fn = 50;
 // ============================================================================
 // PARAMETERS
 // ============================================================================
-case_w = 120;
+case_w = 126;
 case_d = 100;
 case_h = 40;
 lid_t  = 3;
@@ -21,15 +21,14 @@ foot_depth   = 1;
 notch_w      = 12;
 notch_depth  = 5;
 
-esp32_x_off    = 0;
-
 screw_inset    = 8;
 
 pp_conn_length  = 30;
 pp_wall_t       = 2;
 pp_ceiling_t    = 2;
 pp_back_lip     = 2;   // Retention lip hanging from ceiling at back (blocks housing, passes wires)
-pp_x_offset     = -3.4;  // Negative = closer to right wall, positions PP pocket away from ESP32
+pp_x_offset     = 2;  // Keeps PP pocket inside case wall
+esp32_x_off     = -5;  // Shift ESP32 left for breakout-to-PP clearance
 
 clamp_w = 30;
 clamp_d = 20;
