@@ -1,6 +1,7 @@
 // Remote Unit Case for LDG Controller
-// Project box: ESP32 on standoffs (rotated 90°), PowerPole in back-right corner
-// (rotated 90°, mating face on right wall), cable notch with strain relief on front.
+// Project box: ESP32 breakout (rotated 90°) on metal standoffs with floor nut traps,
+// PowerPole in back-right corner (rotated 90°, mating face on right wall),
+// cable notch with strain relief on front.
 
 include <common.scad>
 
@@ -10,7 +11,7 @@ $fn = 50;
 // PARAMETERS
 // ============================================================================
 case_w = 80;
-case_d = 85;
+case_d = 95;
 case_h = 30;
 lid_t  = 3;
 floor_t = 4;
@@ -24,7 +25,7 @@ notch_depth  = 5;
 screw_inset    = 8;
 
 esp32_x_off       = 0;
-esp32_standoff_h  = 10;
+esp32_y_off       = 16;  // Shift board forward to clear PP pocket
 
 pp_conn_length  = 30;
 pp_wall_t       = 2;
@@ -38,8 +39,6 @@ groove_d = 6;
 // ============================================================================
 // HELPERS
 // ============================================================================
-// PP rotated 90°: long axis (pp_conn_length=30) along X, short axis (pp_w=16.8) along Y
-// Mating face on right wall (+X), back against back wall (-Y)
 pp_pocket_x = case_w/2 - pp_conn_length/2;
 pp_pocket_y = -(case_d/2 - wall - pp_w/2);
 
@@ -57,7 +56,6 @@ module remote_base() {
         union() {
             box_shell();
             powerpole_enclosure();
-            esp32_standoffs();
         }
 
         esp32_nut_traps();
@@ -66,11 +64,11 @@ module remote_base() {
         powerpole_wire_exit();
         cable_notch();
 
-        translate([-case_w/2 + wall/2, 0, case_h * 0.65])
+        translate([-case_w/2 + wall/2, esp32_y_off, case_h * 0.65])
             rotate([0, 90, 0])
                 vent_slots(3, 5, 15, 3);
 
-        translate([case_w/2 - wall/2, 0, case_h * 0.65])
+        translate([case_w/2 - wall/2, esp32_y_off, case_h * 0.65])
             rotate([0, 90, 0])
                 vent_slots(3, 5, 15, 3);
 
@@ -93,19 +91,11 @@ module box_shell() {
     }
 }
 
-module esp32_standoffs() {
-    for (p = [[-nodemcu_hole_y/2, -nodemcu_hole_x/2],
-               [-nodemcu_hole_y/2,  nodemcu_hole_x/2],
-               [ nodemcu_hole_y/2,  nodemcu_hole_x/2]])
-        translate([esp32_x_off + p[0], p[1], floor_t])
-            standoff(6, esp32_standoff_h);
-}
-
 module esp32_nut_traps() {
     for (p = [[-nodemcu_hole_y/2, -nodemcu_hole_x/2],
                [-nodemcu_hole_y/2,  nodemcu_hole_x/2],
                [ nodemcu_hole_y/2,  nodemcu_hole_x/2]])
-        translate([esp32_x_off + p[0], p[1], 0])
+        translate([esp32_x_off + p[0], esp32_y_off + p[1], 0])
             embedded_nut_trap();
 }
 
