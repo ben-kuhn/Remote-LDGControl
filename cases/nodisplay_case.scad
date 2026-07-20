@@ -11,7 +11,7 @@ $fn = 50;
 // PARAMETERS
 // ============================================================================
 case_w = 80;
-case_d = 95;
+case_d = 105;
 case_h = 30;
 lid_t  = 3;
 floor_t = 4;
@@ -25,7 +25,7 @@ notch_depth  = 5;
 screw_inset    = 8;
 
 esp32_x_off       = 0;
-esp32_y_off       = 16;  // Shift board forward to clear PP pocket
+esp32_y_off       = 8;  // Shift board forward to clear PP pocket
 
 pp_conn_length  = 30;
 pp_wall_t       = 2;
@@ -43,9 +43,10 @@ pp_pocket_x = case_w/2 - pp_conn_length/2;
 pp_pocket_y = -(case_d/2 - wall - pp_w/2);
 
 function screw_positions() = [
-    [-(case_w/2 - screw_inset), -(case_d/2 - screw_inset)],
-    [-(case_w/2 - screw_inset),  (case_d/2 - screw_inset)],
-    [ (case_w/2 - screw_inset),  (case_d/2 - screw_inset)],
+    [esp32_x_off - nodemcu_hole_y/2, esp32_y_off - nodemcu_hole_x/2],
+    [esp32_x_off + nodemcu_hole_y/2, esp32_y_off - nodemcu_hole_x/2],
+    [esp32_x_off - nodemcu_hole_y/2, esp32_y_off + nodemcu_hole_x/2],
+    [esp32_x_off + nodemcu_hole_y/2, esp32_y_off + nodemcu_hole_x/2],
 ];
 
 // ============================================================================
