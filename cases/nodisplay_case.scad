@@ -63,6 +63,7 @@ module remote_base() {
         esp32_nut_traps();
         powerpole_mating_hole();
         powerpole_retention_screw();
+        powerpole_wire_exit();
         cable_notch();
 
         translate([-case_w/2 + wall/2, 0, case_h * 0.65])
@@ -94,7 +95,6 @@ module box_shell() {
 
 module esp32_standoffs() {
     for (p = [[-nodemcu_hole_y/2, -nodemcu_hole_x/2],
-               [ nodemcu_hole_y/2, -nodemcu_hole_x/2],
                [-nodemcu_hole_y/2,  nodemcu_hole_x/2],
                [ nodemcu_hole_y/2,  nodemcu_hole_x/2]])
         translate([esp32_x_off + p[0], p[1], floor_t])
@@ -103,7 +103,6 @@ module esp32_standoffs() {
 
 module esp32_nut_traps() {
     for (p = [[-nodemcu_hole_y/2, -nodemcu_hole_x/2],
-               [ nodemcu_hole_y/2, -nodemcu_hole_x/2],
                [-nodemcu_hole_y/2,  nodemcu_hole_x/2],
                [ nodemcu_hole_y/2,  nodemcu_hole_x/2]])
         translate([esp32_x_off + p[0], p[1], 0])
@@ -165,6 +164,13 @@ module powerpole_retention_screw() {
     translate([pp_pocket_x, -case_d/2 + wall/2, floor_t + pp_h/2])
         rotate([90, 0, 0])
             cylinder(d = m3_dia, h = wall + 0.2, $fn = 24, center = true);
+}
+
+module powerpole_wire_exit() {
+    wire_slot_w = 20;
+    wire_slot_h = 8;
+    translate([pp_pocket_x - wire_slot_w/2, -case_d/2 - 0.1, floor_t])
+        cube([wire_slot_w, wall + 0.2, wire_slot_h]);
 }
 
 // ============================================================================
