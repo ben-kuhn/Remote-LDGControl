@@ -688,8 +688,24 @@ void test_uart_damage_revokes_last_meter_until_a_new_valid_frame() {
     TEST_ASSERT_TRUE(tuner.getState().meterValid);
 }
 
+void test_meter_recovery_is_bounded_backs_off_failed_writes_and_respects_stop() {
+    TunerProtocol tuner; begin(tuner); unsigned starts=0;
+    HardwareSerial::written=[&](HardwareSerial&,uint8_t command){if(command=='S')++starts;};
+    testMillis+=1001;tuner.serviceMeter();TEST_ASSERT_EQUAL_UINT(1,starts);
+    tuner.serviceMeter();TEST_ASSERT_EQUAL_UINT(1,starts);
+    testMillis+=1001;HardwareSerial::latest->failWrites=true;tuner.serviceMeter();
+    HardwareSerial::latest->failWrites=false;tuner.serviceMeter();TEST_ASSERT_EQUAL_UINT(1,starts);
+    testMillis+=1001;tuner.serviceMeter();TEST_ASSERT_EQUAL_UINT(2,starts);
+    TEST_ASSERT_TRUE(tuner.stopMeter());testMillis+=2000;tuner.serviceMeter();TEST_ASSERT_EQUAL_UINT(2,starts);
+    TEST_ASSERT_TRUE(tuner.startMeter());feed(tuner,frame(100,0));const unsigned before=starts;
+    tuner.serviceMeter();TEST_ASSERT_EQUAL_UINT(before,starts);
+    testMillis+=1001;tuner.serviceMeter();TEST_ASSERT_EQUAL_UINT(before+1,starts);
+    TEST_ASSERT_TRUE(tuner.getDiagnostics().meterRestarts>=4);
+}
+
 int main() {
     UNITY_BEGIN();
+    RUN_TEST(test_meter_recovery_is_bounded_backs_off_failed_writes_and_respects_stop);
     RUN_TEST(test_uart_damage_revokes_last_meter_until_a_new_valid_frame);
     RUN_TEST(test_tune_response_and_uart_failure_are_not_success);
     RUN_TEST(test_meter_timeout_and_recovery_survive_clock_wrap);

@@ -362,6 +362,7 @@ void setup() {
     display.begin(&tuner);
     configManager.setPortalIdleCallback([]() {
         tuner.process();
+        tuner.serviceMeter();
         display.loop();
     });
 #endif
@@ -419,6 +420,7 @@ void setup() {
 
 void loop() {
     tuner.process();
+    tuner.serviceMeter();
 
     // WiFi reconnection — only manage STA when STA is actually configured.
     // In AP-only mode (captive portal still running, never configured) there

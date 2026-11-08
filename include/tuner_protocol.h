@@ -53,6 +53,8 @@ public:
 
     // Check if tuner is communicating
     bool isConnected() const;
+    // Idle-owner maintenance; never run from inside a control exchange.
+    void serviceMeter();
 
     // Calculate power from raw meter value
     static double calculatePower(uint16_t raw, double psuVoltage = 13.8);

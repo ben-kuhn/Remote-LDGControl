@@ -361,6 +361,21 @@ bool TunerProtocol::isConnected() const {
     return connected;
 }
 
+void TunerProtocol::serviceMeter() {
+    if (!m_serial || !m_connected) return;
+    TunerLock lock(m_mutex, 0);
+    if (!lock || !m_meterRequested || m_waitingForResponse || m_drainingLateResponse) return;
+    const uint32_t now = millis();
+    if ((m_hasMeterData && now - m_lastMeterMs < METER_RESTART_INTERVAL_MS) ||
+        now - m_lastMeterStartMs < METER_RESTART_INTERVAL_MS) return;
+    // Back off failed writes as well as successful restarts.
+    m_lastMeterStartMs = now;
+    portENTER_CRITICAL(&m_snapshotMux);
+    ++m_diagnostics.meterRestarts;
+    portEXIT_CRITICAL(&m_snapshotMux);
+    if (switchToMeterMode()) process();
+}
+
 double TunerProtocol::calculatePower(uint16_t raw, double psuVoltage) {
     double tosquare = (1000.0 * psuVoltage * raw) / (65536.0 * 0.707);
     return (tosquare * tosquare) / 50.0;
