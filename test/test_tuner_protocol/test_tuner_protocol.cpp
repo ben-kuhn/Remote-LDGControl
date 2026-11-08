@@ -679,8 +679,18 @@ void test_swr_valid_measurements_and_invalid_rf_stay_unknown_in_json() {
     }
 }
 
+void test_uart_damage_revokes_last_meter_until_a_new_valid_frame() {
+    TunerProtocol tuner; begin(tuner); feed(tuner,frame(100,0));
+    TEST_ASSERT_TRUE(tuner.getState().meterValid);
+    HardwareSerial::latest->receiveError(UART_FRAME_ERROR);tuner.process();
+    TEST_ASSERT_FALSE(tuner.getState().meterValid);
+    feed(tuner,{0x3b,0x3b});feed(tuner,frame(100,0));
+    TEST_ASSERT_TRUE(tuner.getState().meterValid);
+}
+
 int main() {
     UNITY_BEGIN();
+    RUN_TEST(test_uart_damage_revokes_last_meter_until_a_new_valid_frame);
     RUN_TEST(test_tune_response_and_uart_failure_are_not_success);
     RUN_TEST(test_meter_timeout_and_recovery_survive_clock_wrap);
     RUN_TEST(test_startup_wait_preserves_a_full_rate_uart_burst);

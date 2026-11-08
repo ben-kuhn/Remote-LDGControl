@@ -415,6 +415,8 @@ void TunerProtocol::processMeterByte(uint8_t b) {
         portENTER_CRITICAL(&m_snapshotMux);
         ++m_diagnostics.framingErrors;
         portEXIT_CRITICAL(&m_snapshotMux);
+        m_hasMeterData = false;
+        publishSnapshot();
         m_meterIdx = 0;
         m_eomCount = 0;
         m_state = State::ERROR;
@@ -504,6 +506,8 @@ void TunerProtocol::process() {
             // Drain this batch, then find a new frame boundary. Never turn an
             // acknowledgement from a damaged batch into command success.
             discard = true;
+            m_hasMeterData = false;
+            publishSnapshot();
             if (m_waitingForResponse || m_drainingLateResponse) m_exchangeUartError = true;
             m_meterIdx = m_eomCount = 0;
             if (m_state != State::RESPONSE) m_state = State::ERROR;
