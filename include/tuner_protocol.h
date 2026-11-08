@@ -5,76 +5,10 @@
 #include <HardwareSerial.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+#include <atomic>
 
-// Command bytes (single ASCII characters)
-#define TUNER_CMD_WAKE          ' '
-#define TUNER_CMD_TOGGLE_ANT    'A'
-#define TUNER_CMD_MEM_TUNE      'T'
-#define TUNER_CMD_FULL_TUNE     'F'
-#define TUNER_CMD_BYPASS        'P'
-#define TUNER_CMD_AUTO_MODE     'C'
-#define TUNER_CMD_MANUAL_MODE   'M'
-#define TUNER_CMD_SYNC          'Z'
-#define TUNER_CMD_METER_START   'S'
-#define TUNER_CMD_METER_STOP    'X'
-
-// Response codes
-#define TUNER_RESP_GOOD         'T'
-#define TUNER_RESP_OKAY         'M'
-#define TUNER_RESP_FAIL         'F'
-#define TUNER_RESP_ERROR        'E'
-#define TUNER_RESP_BYPASS       'P'
-#define TUNER_RESP_AUTO         'A'
-#define TUNER_RESP_MANUAL       'M'
-#define TUNER_RESP_ANT_A        'A'
-#define TUNER_RESP_ANT_B        'B'
-
-// Meter packet structure
-#define TUNER_METER_DATA_LEN    6
-#define TUNER_METER_EOM         0x3B3B  // ";;"
-
-// Band detection thresholds (from reverse-engineered "wtf" bytes)
-typedef enum {
-    BAND_UNKNOWN = 0,
-    BAND_160M,
-    BAND_80M,
-    BAND_60M,
-    BAND_40M,
-    BAND_30M,
-    BAND_20M,
-    BAND_17M,
-    BAND_15M,
-    BAND_12M,
-    BAND_10M,
-    BAND_6M,
-    BAND_COUNT
-} tuner_band_t;
-
-// Tuner operating mode
-typedef enum {
-    MODE_UNKNOWN = 0,
-    MODE_AUTO,
-    MODE_MANUAL,
-    MODE_BYPASS
-} tuner_mode_t;
-
-// Antenna selection
-typedef enum {
-    ANT_UNKNOWN = 0,
-    ANT_A,
-    ANT_B
-} tuner_ant_t;
-
-// Meter data structure
-typedef struct {
-    uint16_t forward_power_raw;
-    uint16_t reflected_power_raw;
-    uint16_t band_indicator;
-    double forward_power_watts;
-    double reflected_power_watts;
-    double swr;
-    tuner_band_t band;
-} tuner_meter_t;
+#include "tuner_types.h"
+#include "tuner_diagnostics.h"
 
 // Callback type for meter updates
 typedef void (*meter_callback_t)(const tuner_meter_t* meter);
@@ -95,7 +29,7 @@ public:
     bool setAutoMode();
     bool setManualMode();
 
-    // Query tuner state
+    // Align the receive stream using the full documented synchronization string.
     bool sync();
 
     // Meter control
@@ -103,7 +37,9 @@ public:
     bool stopMeter();
 
     // Get current meter readings (updated by background task)
-    const tuner_meter_t* getMeterData() const;
+    const tuner_meter_t* getMeterData() const { return &m_meterData; }
+    tuner_state_t getState() const;
+    ldg::TunerDiagnostics getDiagnostics() const;
 
     // Get tuner mode (derived from responses)
     tuner_mode_t getMode() const;
@@ -128,15 +64,22 @@ private:
     // Internal methods
     bool sendCommand(uint8_t cmd);
     bool sendWake();
-    void switchToControlMode();
-    void switchToMeterMode();
-    char waitForResponse(uint32_t timeoutMs = 500);
+    bool switchToControlMode();
+    bool switchToMeterMode();
+    char exchangeCommand(uint8_t cmd);
+    void resetCommandTrace(uint8_t exchange);
+    char controlResponse(uint8_t cmd);
+    void publishSnapshot(bool received = false, bool meterReceived = false);
+    char waitForResponse(uint8_t cmd, uint32_t timeoutMs);
+    void drainLateResponse();
+    void processResponseByte(uint8_t b);
     void processMeterByte(uint8_t b);
     void publishMeterData();
     tuner_band_t decodeBand(uint16_t indicator);
 
     HardwareSerial* m_serial;
     tuner_meter_t m_meterData;
+    bool m_hasMeterData = false;
     meter_callback_t m_meterCallback;
 
     // Meter parsing state
@@ -156,20 +99,43 @@ private:
     tuner_ant_t m_antenna;
     bool m_connected;
     bool m_meterActive;
+    bool m_meterRequested = false;
+    uint32_t m_lastMeterStartMs = 0;
+    static constexpr uint32_t METER_RESTART_INTERVAL_MS = 1000;
 
     // Response handling
     volatile char m_pendingResponse;
     bool m_waitingForResponse;
+    bool m_drainingLateResponse = false;
+    uint8_t m_timedOutCommand = 0, m_lateResponse = 0;
+    uint8_t m_expectedCommand = 0;
+    uint8_t m_syncMatched = 0;
+    uint32_t m_lastAckMs = 0;
+    bool m_ackGuardActive = false;
+    // A timeout leaves an ambiguous reply in flight. Require Z before another
+    // control operation rather than attributing the late reply to that operation.
+    bool m_needsSync = false;
+    // UART-worker owned. Freeze the latest exchange separately from live RX.
+    uint8_t m_exchange = 0;
+    bool m_exchangeWritten = false, m_exchangeUartError = false;
+    uint8_t m_commandRx[32]{};
+    uint8_t m_commandRxNext = 0, m_commandRxCount = 0;
+    uint32_t m_commandRxBytes = 0;
+    uint32_t m_responseTimeoutMs = 0, m_responseWaitMs = 0;
 
-    // Mutex protecting UART access from main and webServer FreeRTOS tasks.
-    // Held by every high-level command (toggleAntenna, memoryTune, ...) for
-    // the duration of its switchToControlMode → sendCommand → waitForResponse
-    // → switchToMeterMode sequence so meter-mode bytes can't interleave with
-    // control-mode responses. process() uses a non-blocking acquire: if the
-    // mutex is busy, this tick's meter parse is skipped and bytes stay in the
-    // UART RX FIFO until the next call — UART2's 256-byte buffer is plenty
-    // for a worst-case command (~1.5s).
+    // Commands and process() belong to the UART worker. The recursive mutex
+    // also protects the command/response sequence against accidental callers.
     SemaphoreHandle_t m_mutex;
+    // Readers never wait for a control command or UART I/O.
+    mutable portMUX_TYPE m_snapshotMux = portMUX_INITIALIZER_UNLOCKED;
+    tuner_state_t m_snapshot;
+    uint32_t m_lastMeterMs = 0;
+    uint32_t m_lastResponseMs = 0;
+    bool m_seenResponse = false;
+    ldg::TunerDiagnostics m_diagnostics;
+    uint8_t m_rxTailNext = 0;
+    std::atomic<bool> m_rxErrorPending{false};
+    static constexpr uint32_t TELEMETRY_TIMEOUT_MS = 3000;
 };
 
 #endif // TUNER_PROTOCOL_H

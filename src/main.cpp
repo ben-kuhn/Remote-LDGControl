@@ -1,3 +1,4 @@
+#include "voltage_sensor.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
@@ -353,6 +354,7 @@ void setup() {
         Serial.println("Tuner interface ready");
     }
 
+    voltageSensor.begin();
     tuner.setMeterCallback(onMeterUpdate);
 
 #ifdef WITH_DISPLAY
