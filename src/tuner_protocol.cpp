@@ -56,6 +56,7 @@ TunerProtocol::TunerProtocol()
       m_mutex(nullptr)
 {
     memset(&m_meterData, 0, sizeof(tuner_meter_t));
+    m_meterData.swr = NAN;
     memset(m_meterBuf, 0, sizeof(m_meterBuf));
 }
 

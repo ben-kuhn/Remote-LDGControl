@@ -44,7 +44,7 @@ DisplayUI::DisplayUI()
       m_ant1NameLabel(nullptr), m_ant2NameLabel(nullptr),
       m_btnBypass(nullptr), m_btnAuto(nullptr),
       m_highScale(true), m_maxPower(1000.0f),
-      m_fwdPower(0), m_refPower(0), m_swr(1.0f),
+      m_fwdPower(0), m_refPower(0), m_swr(NAN),
       m_activeAnt(ANT_UNKNOWN) {
     s_instance = this;
 }
@@ -450,10 +450,11 @@ void DisplayUI::drawCrossNeedle(lv_event_t* e) {
 
     // ----- SWR text -----
     char swrBuf[16];
-    snprintf(swrBuf, sizeof(swrBuf), "%.1f:1", m_swr);
+    if (isfinite(m_swr)) snprintf(swrBuf, sizeof(swrBuf), "%.1f:1", m_swr);
+    else snprintf(swrBuf, sizeof(swrBuf), "--");
     lv_draw_label_dsc_t swr_dsc;
     lv_draw_label_dsc_init(&swr_dsc);
-    swr_dsc.color = (m_swr > 2.0f) ? lv_color_hex(0xff4444) :
+    swr_dsc.color = !isfinite(m_swr) ? lv_color_hex(0x9ca3af) : (m_swr > 2.0f) ? lv_color_hex(0xff4444) :
                     (m_swr > 1.5f) ? lv_color_hex(0xffaa00) : lv_color_hex(0x00ff00);
     swr_dsc.font  = &lv_font_montserrat_24;
     swr_dsc.align = LV_TEXT_ALIGN_CENTER;
