@@ -22,8 +22,8 @@ $fn = 50;
 // ============================================================================
 case_w = 80;      // X: front-to-back depth
 case_d = 105;     // Y: left-to-right width (display width)
-case_h = 115;     // Z: total height
-front_h = 45;     // vertical front face below the display slope
+case_h = 85;      // Z: total height (display sits ~15mm above the ESP)
+front_h = 15;     // vertical front face below the display slope
 tilt = 12;        // display face lean-back angle
 corner_r = 3;
 
@@ -214,7 +214,7 @@ module back_cable_clamp() {
 // VENTS / FEET
 // ============================================================================
 module side_vents() {
-    for (side = [-1, 1], z = [62, 84], i = [-2 : 2])
+    for (side = [-1, 1], z = [55, 70], i = [-2 : 2])
         translate([i * 8, side * (case_d/2 - wall/2), z])
             cube([3, wall + 0.1, 14], center = true);
 }
