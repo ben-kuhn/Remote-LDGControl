@@ -2,6 +2,8 @@
 // Project box: ESP32 breakout (rotated 90°) on metal standoffs with floor nut traps,
 // PowerPole in back-right corner (rotated 90°, mating face on right wall),
 // cable notch with strain relief on front.
+// The PowerPole pair is retained by a vertical 3/32in roll pin dropped through
+// the pocket ceiling into the slot between the red and black housings.
 
 include <common.scad>
 
@@ -19,6 +21,8 @@ floor_t = 4;
 corner_r     = 3;
 foot_dia     = 6;
 foot_depth   = 1;
+foot_inset_x = 8;   // keep feet clear of the front-row M3 nut traps
+foot_inset_y = 15;
 notch_w      = 12;
 notch_depth  = 5;
 
@@ -30,6 +34,12 @@ esp32_y_off       = 8;  // Shift board forward to clear PP pocket
 pp_conn_length  = 30;
 pp_wall_t       = 2;
 pp_ceiling_t    = 2;
+// Anderson drawing 1-9597S1: the roll-pin slot is 0.39in (9.9mm) back from
+// the mating face, on the seam between the two housings.  A 3/32in (2.38mm)
+// Powerpole roll pin is the intended pin; 2.3mm gives it a slight press fit
+// in the printed ceiling while the connector's own 2.6mm slot locates it.
+pp_pin_from_face = 9.9;
+pp_pin_d         = 2.3;
 
 clamp_w = 30;
 clamp_d = 20;
@@ -42,6 +52,8 @@ groove_d = 6;
 pp_pocket_x = case_w/2 - pp_conn_length/2;
 pp_pocket_y = -(case_d/2 - wall - pp_w/2);
 
+// Single source of truth for the four vertical screw stacks: board nut traps
+// in the floor, case clearance holes, and lid holes must all use this pattern.
 function screw_positions() = [
     [esp32_x_off - nodemcu_hole_y/2, esp32_y_off - nodemcu_hole_x/2],
     [esp32_x_off + nodemcu_hole_y/2, esp32_y_off - nodemcu_hole_x/2],
@@ -61,7 +73,7 @@ module remote_base() {
 
         esp32_nut_traps();
         powerpole_mating_hole();
-        powerpole_retention_screw();
+        powerpole_retention_pin();
         powerpole_wire_passage();
         cable_notch();
 
@@ -74,7 +86,8 @@ module remote_base() {
                 vent_slots(3, 5, 15, 3);
 
         for (x = [-1, 1], y = [-1, 1])
-            translate([x * (case_w/2 - 10), y * (case_d/2 - 10), -0.1])
+            translate([x * (case_w/2 - foot_inset_x),
+                       y * (case_d/2 - foot_inset_y), -0.1])
                 rubber_foot(foot_dia, foot_depth);
 
         corner_screw_holes(case_h + 1);
@@ -93,11 +106,10 @@ module box_shell() {
 }
 
 module esp32_nut_traps() {
-    for (p = [[-nodemcu_hole_y/2, -nodemcu_hole_x/2],
-               [ nodemcu_hole_y/2, -nodemcu_hole_x/2],
-               [-nodemcu_hole_y/2,  nodemcu_hole_x/2],
-               [ nodemcu_hole_y/2,  nodemcu_hole_x/2]])
-        translate([esp32_x_off + p[0], esp32_y_off + p[1], 0])
+    // Same pattern as the lid and case holes, so the whole screw stack is
+    // guaranteed to line up from top to bottom.
+    for (pos = screw_positions())
+        translate([pos[0], pos[1], 0])
             embedded_nut_trap();
 }
 
@@ -152,10 +164,13 @@ module powerpole_mating_hole() {
         cube([wall + 0.2, pp_w + 2*tol, pp_h + 2*tol], center = true);
 }
 
-module powerpole_retention_screw() {
-    translate([pp_pocket_x, -case_d/2 + wall/2, floor_t + pp_h/2])
-        rotate([90, 0, 0])
-            cylinder(d = m3_dia, h = wall + 0.2, $fn = 24, center = true);
+module powerpole_retention_pin() {
+    // Vertical 3/32in roll-pin hole through the pocket ceiling.  It lands in
+    // the round slot formed where the + and - housings dovetail together,
+    // 9.9mm behind the mating face, and locks the pair in the pocket.
+    pin_x = case_w/2 - pp_pin_from_face;
+    translate([pin_x, pp_pocket_y, floor_t + pp_h - 0.1])
+        cylinder(d = pp_pin_d, h = pp_ceiling_t + 0.2, $fn = 24);
 }
 
 module powerpole_wire_passage() {
