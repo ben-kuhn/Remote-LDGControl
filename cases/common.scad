@@ -22,14 +22,17 @@ m3_head_dep = 2.0;
 // ============================================================================
 
 // BTT TFT35-SPI V2.1 Display
-tft_pcb_w          = 110;
-tft_pcb_h          = 60;
+// Official BTT size drawing (v2/Hardware/BTT TFT35-SPI V2.1_SIZE.pdf):
+// PCB 98 x 56 mm, mounting holes 91.97 x 49.99 mm on center, 2.98 mm holes.
+// Active area for the 480x320 3.5in panel is 73.4 x 49.0 mm.
+tft_pcb_w          = 98;
+tft_pcb_h          = 56;
 tft_pcb_t          = 1.6;
-tft_screen_w       = 73;
-tft_screen_h       = 52;
-tft_hole_spacing_x = 105;
-tft_hole_spacing_y = 55.5;
-tft_hole_dia       = 3.2;
+tft_screen_w       = 73.4;
+tft_screen_h       = 49.0;
+tft_hole_spacing_x = 91.97;
+tft_hole_spacing_y = 49.99;
+tft_hole_dia       = 2.98;
 
 // NodeMCU ESP32S
 nodemcu_w    = 75;

@@ -64,7 +64,7 @@ function screw_positions() = [
 // ============================================================================
 // BASE
 // ============================================================================
-module remote_base() {
+module remote_base(cable_side = 1) {
     difference() {
         union() {
             box_shell();
@@ -75,7 +75,7 @@ module remote_base() {
         powerpole_mating_hole();
         powerpole_retention_pin();
         powerpole_wire_passage();
-        cable_notch();
+        cable_notch(cable_side);
 
         translate([-case_w/2 + wall/2, esp32_y_off, case_h * 0.65])
             rotate([0, 90, 0])
@@ -121,8 +121,9 @@ module embedded_nut_trap() {
         cylinder(d = m3_dia, h = screw_clearance_h + 0.2, $fn = 24);
 }
 
-module cable_notch() {
-    translate([-notch_w/2, case_d/2 - wall - 0.1, case_h - notch_depth])
+module cable_notch(side = 1) {
+    y0 = side > 0 ? case_d/2 - wall - 0.1 : -case_d/2 - 0.1;
+    translate([-notch_w/2, y0, case_h - notch_depth])
         cube([notch_w, wall + 0.2, notch_depth + 0.1], center = false);
 }
 
@@ -213,7 +214,7 @@ module remote_lid() {
 // ============================================================================
 // STRAIN RELIEF CLAMP
 // ============================================================================
-module strain_relief_clamp() {
+module strain_relief_clamp(side = 1) {
     clamp_y_center = case_d/2 - wall - notch_w/2;
     foot_w = 6;
     foot_d = 12;
@@ -223,7 +224,7 @@ module strain_relief_clamp() {
     arch_thickness = 2;
     screw_pad_d = 6;
 
-    translate([0, clamp_y_center, 0]) {
+    translate([0, side * clamp_y_center, 0]) {
         difference() {
             union() {
                 translate([-arch_span/2, 0, -foot_t/2]) {
