@@ -60,10 +60,6 @@ lid_screw_positions = [
     [ 37, -20],
 ];
 
-cable_z = 12;
-cable_notch_w = 12;
-cable_notch_h = 5;
-
 // ============================================================================
 // HELPERS
 // ============================================================================
@@ -165,48 +161,46 @@ module display_standoff_pilots() {
 }
 
 // ============================================================================
-// BACK CABLE ENTRY
+// BACK CABLE ENTRY / FLOOR CLAMP
 // ============================================================================
-module cable_notch() {
-    translate([case_w/2 - wall - 0.1, -cable_notch_w/2, cable_z - cable_notch_h/2])
-        cube([wall + 0.2, cable_notch_w, cable_notch_h + 0.1]);
+cable_notch_w = 12;
+cable_notch_h = 10;
+
+module cable_notch_floor() {
+    translate([case_w/2 - wall - 0.1, -cable_notch_w/2, 0])
+        cube([wall + 0.2, cable_notch_w, cable_notch_h]);
 }
 
-module cable_boss() {
-    translate([case_w/2 - wall - 4, -15, 0])
-        cube([4.5, 30, 24]);
+module floor_clamp_nut_traps() {
+    // Same clamp as the remote case, but screwed to the floor with the cable
+    // entering over the floor edge through the back-wall notch.
+    for (y = [-8, 8])
+        translate([case_w/2 - 10, y, -0.1])
+            nut_trap(m3_nut_dep + 0.1);
 }
 
-module cable_channel() {
-    translate([case_w/2 - wall - 4.1, -cable_notch_w/2, cable_z - cable_notch_h/2])
-        cube([4.2, cable_notch_w, cable_notch_h + 0.1]);
+module floor_cable_clamp() {
+    translate([case_w/2 - 10, 0, floor_t])
+        rotate([0, 0, 90])
+            rotate([180, 0, 0])
+                strain_relief_clamp(side = 0);
 }
 
-module cable_clamp_screw_holes() {
-    for (z = [cable_z - 8, cable_z + 8]) {
-        // clearance through the outside clamp plate + back wall + boss
-        translate([case_w/2 + 3, 0, z])
-            rotate([0, 90, 0])
-                cylinder(d = m3_dia, h = 8.2, $fn = 24);
-        // nut pocket in the inner boss
-        translate([case_w/2 - wall - 3, 0, z])
-            rotate([0, 90, 0])
-                nut_trap(m3_nut_dep + 0.1);
-    }
-}
-
-module back_cable_clamp() {
-    difference() {
-        translate([case_w/2 + 1.5, 0, cable_z])
-            cube([3, 30, 22], center = true);
-        // cable relief
-        translate([case_w/2 + 1.5, 0, cable_z])
-            rotate([0, 90, 0])
-                cylinder(d = 8, h = 4, center = true, $fn = 32);
-        for (z = [cable_z - 8, cable_z + 8])
-            translate([case_w/2 + 1.5, 0, z])
-                rotate([0, 90, 0])
-                    cylinder(d = m3_dia, h = 4, center = true, $fn = 24);
+// ============================================================================
+// DISPLAY SCREW ACCESS
+// ============================================================================
+module display_access_holes() {
+    // The TFT is screwed to standoffs on the inside of the front wall.  These
+    // holes let a long screwdriver reach those screws from the back wall.
+    intersection() {
+        on_slope()
+            for (sx = [-1, 1], sy = [-1, 1])
+                translate([sx * tft_hole_x/2,
+                           screen_cy + sy * tft_hole_y/2,
+                           wall + standoff_h + 50])
+                    cylinder(d = 8, h = 100, $fn = 24);
+        translate([case_w/2 - 1, -case_d/2, -1])
+            cube([3, case_d, case_h + 2]);
     }
 }
 
@@ -269,7 +263,6 @@ module display_case() {
             powerpole_enclosure();
             display_standoffs();
             top_lid_bosses();
-            cable_boss();
         }
 
         esp32_nut_traps();
@@ -279,10 +272,10 @@ module display_case() {
 
         screen_opening();
         display_standoff_pilots();
+        display_access_holes();
 
-        cable_notch();
-        cable_channel();
-        cable_clamp_screw_holes();
+        cable_notch_floor();
+        floor_clamp_nut_traps();
 
         side_vents();
         feet();
@@ -299,7 +292,7 @@ module display_assembly() {
     color("LightGreen", 0.85)
         translate([0, 0, 0])
             top_lid();
-    color("Orange", 0.9) back_cable_clamp();
+    color("Orange", 0.9) floor_cable_clamp();
 }
 
 // ============================================================================
@@ -309,4 +302,4 @@ module display_assembly() {
 display_assembly();
 // display_case();
 // top_lid();
-// back_cable_clamp();
+// floor_cable_clamp();
