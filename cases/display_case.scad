@@ -56,8 +56,8 @@ lid_screw_positions = [
     [-10, -47.5],
     [ 20,  47.5],
     [ 20, -47.5],
-    [ 37,  20],
-    [ 37, -20],
+    [ 34.5,  20],
+    [ 34.5, -20],
 ];
 
 // ============================================================================
@@ -123,7 +123,7 @@ module top_opening() {
 module top_lid_bosses() {
     for (p = lid_screw_positions)
         translate([p[0], p[1], case_h - 10])
-            cylinder(d = 6, h = 10, $fn = 32);
+            cylinder(d = 10, h = 10, $fn = 32);
 }
 
 module lid_nut_traps() {
@@ -133,7 +133,7 @@ module lid_nut_traps() {
 }
 
 // ============================================================================
-// DISPLAY MOUNT (inside the front wall)
+// DISPLAY MOUNT (front screws)
 // ============================================================================
 module screen_opening() {
     on_slope()
@@ -141,23 +141,23 @@ module screen_opening() {
             cube([screen_open_w, screen_open_h, wall + 0.2], center = true);
 }
 
-module display_standoffs() {
+// The TFT sits against the inside of the front wall.  M3 screws come from
+// the front, through these holes and the PCB, into standoffs in the PCB
+// mounting holes.  No printed standoffs or spacers.
+module display_front_mounts() {
     on_slope()
         for (sx = [-1, 1], sy = [-1, 1])
             translate([sx * tft_hole_x/2,
-                       screen_cy + sy * tft_hole_y/2,
-                       wall - 0.5 + (standoff_h + 0.5)/2])
-                cylinder(d = standoff_od, h = standoff_h + 0.5, $fn = 32);
+                       screen_cy + sy * tft_hole_y/2, wall/2])
+                cylinder(d = m3_dia, h = wall + 0.2, center = true, $fn = 24);
 }
 
-module display_standoff_pilots() {
+module display_front_counterbores() {
     on_slope()
         for (sx = [-1, 1], sy = [-1, 1])
             translate([sx * tft_hole_x/2,
-                       screen_cy + sy * tft_hole_y/2,
-                       wall - 0.5 + (standoff_h + 0.5)/2])
-                cylinder(d = standoff_pilot_d,
-                         h = standoff_h + 0.7, center = true, $fn = 20);
+                       screen_cy + sy * tft_hole_y/2, -1.5])
+                cylinder(d = m3_head_dia, h = 1.7, $fn = 24);
 }
 
 // ============================================================================
@@ -171,37 +171,43 @@ module cable_notch_floor() {
         cube([wall + 0.2, cable_notch_w, cable_notch_h]);
 }
 
-module floor_clamp_nut_traps() {
-    // Same clamp as the remote case, but screwed to the floor with the cable
-    // entering over the floor edge through the back-wall notch.
+module board_nut_bosses() {
+    // Raise the ESP32 mounting surface so the floor nut pockets have a real
+    // shoulder above the nut instead of being open through the 2.5mm floor.
+    for (pos = screw_positions())
+        translate([pos[0], pos[1], floor_t - 0.5])
+            cylinder(d = 9, h = 2.5, $fn = 32);
+}
+
+module board_nut_pockets() {
+    for (pos = screw_positions()) {
+        translate([pos[0], pos[1], -0.1])
+            nut_trap(m3_nut_dep + 0.1);
+        translate([pos[0], pos[1], m3_nut_dep])
+            cylinder(d = m3_dia, h = floor_t - m3_nut_dep + 2.2, $fn = 24);
+    }
+}
+
+module floor_clamp_bosses() {
     for (y = [-8, 8])
+        translate([case_w/2 - 10, y, floor_t - 0.5])
+            cylinder(d = 9, h = 2.5, $fn = 32);
+}
+
+module floor_clamp_nut_traps() {
+    for (y = [-8, 8]) {
         translate([case_w/2 - 10, y, -0.1])
             nut_trap(m3_nut_dep + 0.1);
+        translate([case_w/2 - 10, y, m3_nut_dep])
+            cylinder(d = m3_dia, h = floor_t - m3_nut_dep + 2.2, $fn = 24);
+    }
 }
 
 module floor_cable_clamp() {
-    translate([case_w/2 - 10, 0, floor_t])
+    translate([case_w/2 - 10, 0, floor_t + 2])
         rotate([0, 0, 90])
             rotate([180, 0, 0])
                 strain_relief_clamp(side = 0);
-}
-
-// ============================================================================
-// DISPLAY SCREW ACCESS
-// ============================================================================
-module display_access_holes() {
-    // The TFT is screwed to standoffs on the inside of the front wall.  These
-    // holes let a long screwdriver reach those screws from the back wall.
-    intersection() {
-        on_slope()
-            for (sx = [-1, 1], sy = [-1, 1])
-                translate([sx * tft_hole_x/2,
-                           screen_cy + sy * tft_hole_y/2,
-                           wall + standoff_h + 50])
-                    cylinder(d = 8, h = 100, $fn = 24);
-        translate([case_w/2 - 1, -case_d/2, -1])
-            cube([3, case_d, case_h + 2]);
-    }
 }
 
 // ============================================================================
@@ -261,18 +267,19 @@ module display_case() {
 
             // Bottom features and display mount live in the same cavity.
             powerpole_enclosure();
-            display_standoffs();
+            board_nut_bosses();
+            floor_clamp_bosses();
             top_lid_bosses();
         }
 
-        esp32_nut_traps();
+        board_nut_pockets();
         powerpole_mating_hole();
         powerpole_retention_pin();
         powerpole_wire_passage();
 
         screen_opening();
-        display_standoff_pilots();
-        display_access_holes();
+        display_front_mounts();
+        display_front_counterbores();
 
         cable_notch_floor();
         floor_clamp_nut_traps();
