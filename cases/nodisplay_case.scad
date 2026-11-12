@@ -147,13 +147,14 @@ module powerpole_enclosure() {
     pp_back  = pp_pocket_y - pp_w/2;
     pp_front = pp_pocket_y + pp_w/2;
 
-    // Left wall (-X side)
-    translate([pp_left - pp_wall_t, pp_back, floor_t])
-        cube([pp_wall_t, pp_w, pp_h + pp_ceiling_t]);
+    // Left wall (-X side).  Start below the floor so the enclosure fuses
+    // with the case floor instead of only touching it.
+    translate([pp_left - pp_wall_t, pp_back, floor_t - 0.5])
+        cube([pp_wall_t, pp_w, pp_h + pp_ceiling_t + 0.5]);
 
     // Front wall (+Y side)
-    translate([pp_left - pp_wall_t, pp_front, floor_t])
-        cube([pp_conn_length + pp_wall_t, pp_wall_t, pp_h + pp_ceiling_t]);
+    translate([pp_left - pp_wall_t, pp_front, floor_t - 0.5])
+        cube([pp_conn_length + pp_wall_t, pp_wall_t, pp_h + pp_ceiling_t + 0.5]);
 
     // Ceiling
     translate([pp_left - pp_wall_t, pp_back, floor_t + pp_h])

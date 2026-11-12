@@ -1,16 +1,16 @@
 // Display Unit Case for LDG Controller
 //
-// Same 80 x 105 footprint as the remote/no-display case.  The remote base is
-// reused unchanged except for the cable notch/clamp, which moves to the back
-// wall.  A taller front tower carries the TFT in portrait orientation on a
-// front face tilted back 12 degrees.
+// One continuous case on the same 80 x 105 footprint as the remote case, but
+// oriented with the 105mm side across the front so the 3.5in TFT fits
+// landscape.  The ESP32, PowerPole, and display share one cavity.
 //
-// Back:  PowerPole (back-right) + tuner cable notch/clamp.
-// Front: portrait 3.5in TFT, facing the user.
+// Front (-X): tilted-back display face.  The TFT PCB mounts to the inside of
+// the front wall; only the screen aperture is cut through, so there is no
+// large hidden opening behind the bezel.
+// Back (+X):  PowerPole at the bottom and the tuner cable entry/clamp.
 //
-// The display head is a separate print.  It bolts to the remote base through
-// the same four M3 screw positions, using screws inserted from underneath the
-// base into nut traps in the head's adapter plate.
+// The bottom electronics reuse the remote case's proven floor/PP modules.
+// A top lid covers the single cavity.
 
 include <common.scad>
 use <nodisplay_case.scad>
@@ -18,74 +18,61 @@ use <nodisplay_case.scad>
 $fn = 50;
 
 // ============================================================================
-// REMOTE BASE (same footprint; cable exits the back)
+// CASE
 // ============================================================================
-base_w = 80;
-base_d = 105;
-base_h = 30;
-cable_side = -1;        // -1 = back wall, +1 = front (remote case default)
-
-notch_w        = 12;
-clamp_y_center = base_d/2 - wall - notch_w/2;   // 44
-clamp_h        = 10;
-
-// ============================================================================
-// DISPLAY HEAD (same footprint as the base)
-// ============================================================================
-head_w        = 80;
-head_d        = 105;
-head_bottom_t = 4;
-head_h        = 156;
-head_shell_z  = base_h + head_bottom_t;   // 34mm
-
-tilt     = 12;          // degrees back from vertical
+case_w = 80;      // X: front-to-back depth
+case_d = 105;     // Y: left-to-right width (display width)
+case_h = 115;     // Z: total height
+front_h = 45;     // vertical front face below the display slope
+tilt = 12;        // display face lean-back angle
 corner_r = 3;
 
-// Portrait TFT35-SPI V2.1: PCB 56 wide x 98 tall, active area 49 x 73.4.
-panel_w = 76;
-panel_h = 120;
-panel_t = 3;
+front_top_x = -case_w/2 + (case_h - front_h) * tan(tilt);   // -25.1
+slope_len   = (case_h - front_h) / cos(tilt);               // 71.6
+screen_cy   = slope_len / 2;                                // slope-frame center
 
-// Opening through the sloped front, sized to clear the 56 x 98 PCB.
-front_open_w = 58;
-front_open_h = 100;
-
-// Portrait screen aperture (49 x 73.4 active area + bezel clearance).
-screen_open_w = 52;
-screen_open_h = 76;
-
-panel_screw_inset_x = 5;   // panel screws at x = +/-33
-panel_screw_inset_y = 5;   // panel screws at y = panel_cy +/-55
-
-standoff_h       = 4;
-standoff_od      = 6;
+// ============================================================================
+// DISPLAY
+// ============================================================================
+screen_open_w = 75;    // active area is 73.4 x 49.0
+screen_open_h = 51;
+standoff_h    = 4;
+standoff_od   = 6;
 standoff_pilot_d = 2.5;
 
-// ============================================================================
-// DERIVED
-// ============================================================================
-slope_len = (head_h - head_shell_z) / cos(tilt);
-panel_y0  = (slope_len - panel_h) / 2;
-panel_cy  = panel_y0 + panel_h/2;
-panel_sx  = panel_w/2 - panel_screw_inset_x;   // 33
-panel_sy  = panel_h/2 - panel_screw_inset_y;   // 55
+// Landscape: the 91.97mm hole spacing is across the case width.
+tft_hole_x = tft_hole_spacing_x;   // 91.97 across
+tft_hole_y = tft_hole_spacing_y;   // 49.99 up/down the slope
 
-head_shell_h = head_h - head_shell_z;          // 122
-slope_top_y  = head_d/2 - head_shell_h * tan(tilt);
+// ============================================================================
+// TOP LID / CABLE CLAMP
+// ============================================================================
+top_lid_t = 3;
+top_lid_x0 = front_top_x;
+top_lid_len = case_w/2 - front_top_x;     // 65.1
 
-// TFT is portrait: the long hole spacing is vertical, short spacing across.
-tft_hole_x = tft_hole_spacing_y;   // 49.99 across
-tft_hole_y = tft_hole_spacing_x;   // 91.97 vertical
+lid_screw_positions = [
+    [-10,  47.5],
+    [-10, -47.5],
+    [ 20,  47.5],
+    [ 20, -47.5],
+    [ 37,  20],
+    [ 37, -20],
+];
+
+cable_z = 12;
+cable_notch_w = 12;
+cable_notch_h = 5;
 
 // ============================================================================
 // HELPERS
 // ============================================================================
-// Extrude a 2D (Y,Z) profile along X.  World mapping: profile-x -> world Y,
-// profile-y -> world Z, extrusion -> world X.
-module extrude_profile_x(width) {
+// Extrude a 2D (X,Z) profile along Y.  World mapping: profile-x -> world X,
+// profile-y -> world Z, extrusion -> world Y.
+module extrude_profile_y(width) {
     multmatrix([
-        [0, 0, 1, 0],
         [1, 0, 0, 0],
+        [0, 0, 1, 0],
         [0, 1, 0, 0],
         [0, 0, 0, 1]
     ])
@@ -93,218 +80,226 @@ module extrude_profile_x(width) {
             children();
 }
 
-// Local frame on the sloped front panel face:
-//   +X = across the panel
+// Local frame on the front display face:
+//   +X = across the case (world Y)
 //   +Y = up the slope
-//   +Z = inward (into the case); the outside/front is -Z
+//   +Z = inward (into the case); outside/front is -Z
 module on_slope() {
-    translate([0, head_d/2, head_shell_z])
-        rotate([90 + tilt, 0, 0])
+    translate([-case_w/2, 0, front_h])
+        multmatrix([
+            [0, sin(tilt), cos(tilt), 0],
+            [1, 0, 0, 0],
+            [0, cos(tilt), -sin(tilt), 0],
+            [0, 0, 0, 1]
+        ])
             children();
 }
 
 // ============================================================================
-// ADAPTER PLATE / HEAD BOTTOM
+// SHELL
 // ============================================================================
-module head_bottom_plate() {
-    difference() {
-        translate([0, 0, base_h])
-            linear_extrude(height = head_bottom_t + 0.5)
-                rounded_rect(head_w, head_d, corner_r);
+outer_profile = [
+    [-case_w/2, 0],
+    [ case_w/2, 0],
+    [ case_w/2, case_h],
+    [ front_top_x, case_h],
+    [-case_w/2, front_h]
+];
 
-        // Screws come up from underneath the remote base into these nuts.
-        for (pos = screw_positions())
-            translate([pos[0], pos[1], base_h - 0.1])
-                nut_trap(m3_nut_dep + 0.1);
+module case_outer() {
+    extrude_profile_y(case_d)
+        polygon(outer_profile);
+}
 
-        // Clearance above the base-mount nuts, through the plate and shell
-        // floor, so a 35mm screw can protrude instead of bottoming out.
-        for (pos = screw_positions())
-            translate([pos[0], pos[1], base_h + m3_nut_dep - 0.1])
-                cylinder(d = m3_dia, h = head_bottom_t + wall + 0.6, $fn = 24);
+module case_inner() {
+    extrude_profile_y(case_d - 2*wall)
+        offset(delta = -wall)
+            polygon(outer_profile);
+}
 
-        // Cable notch, aligned with the remote base's back-wall notch.
-        translate([-notch_w/2,
-                   cable_side > 0 ? base_d/2 - wall - 0.1 : -base_d/2 - 0.1,
-                   base_h - 0.1])
-            cube([notch_w, wall + 0.2, head_bottom_t + 0.2]);
+module top_opening() {
+    translate([front_top_x, -(case_d/2 - wall), case_h - wall - 1])
+        cube([case_w/2 - wall - front_top_x,
+              case_d - 2*wall,
+              wall + 2]);
+}
 
-        // Strain-relief clamp holes.  The clamp hangs under this plate.
-        for (x = [-8, 8]) {
-            translate([x, cable_side * clamp_y_center, base_h - 0.1])
-                cylinder(d = m3_dia, h = head_bottom_t + 0.2, $fn = 24);
-            translate([x, cable_side * clamp_y_center,
-                       base_h + head_bottom_t - m3_nut_dep])
-                nut_trap(m3_nut_dep + 0.1);
-        }
+module top_lid_bosses() {
+    for (p = lid_screw_positions)
+        translate([p[0], p[1], case_h - 10])
+            cylinder(d = 6, h = 10, $fn = 32);
+}
 
-        // Display ribbon cable pass-through into the remote base.
-        translate([0, 8, base_h - 0.1])
-            cylinder(d = 12, h = head_bottom_t + wall + 0.2, $fn = 32);
-    }
+module lid_nut_traps() {
+    for (p = lid_screw_positions)
+        translate([p[0], p[1], case_h - m3_nut_dep])
+            nut_trap(m3_nut_dep + 0.1);
 }
 
 // ============================================================================
-// HEAD SHELL
+// DISPLAY MOUNT (inside the front wall)
 // ============================================================================
-module head_shell_outer() {
-    intersection() {
-        translate([0, 0, head_shell_z])
-            extrude_profile_x(head_w)
-                polygon([
-                    [-head_d/2, 0],
-                    [ head_d/2, 0],
-                    [ slope_top_y, head_shell_h],
-                    [-head_d/2, head_shell_h]
-                ]);
-        translate([0, 0, head_shell_z])
-            linear_extrude(height = head_shell_h)
-                rounded_rect(head_w, head_d, corner_r);
-    }
-}
-
-module head_shell_inner() {
-    intersection() {
-        translate([0, 0, head_shell_z])
-            extrude_profile_x(head_w - 2*wall)
-                offset(delta = -wall)
-                    polygon([
-                        [-head_d/2, 0],
-                        [ head_d/2, 0],
-                        [ slope_top_y, head_shell_h],
-                        [-head_d/2, head_shell_h]
-                    ]);
-        translate([0, 0, head_shell_z])
-            linear_extrude(height = head_shell_h)
-                rounded_rect(head_w - 2*wall, head_d - 2*wall,
-                             max(corner_r - wall, 0.1));
-    }
-}
-
-module panel_frame() {
-    // Internal reinforcing frame around the display opening.  It ties all
-    // four panel-screw bosses together and fuses them to the slope wall.
+module screen_opening() {
     on_slope()
-        translate([0, panel_cy, wall - 0.5 + 4.8/2])
-            difference() {
-                cube([panel_w, panel_h, 4.8], center = true);
-                cube([front_open_w, front_open_h, 10], center = true);
-            }
+        translate([0, screen_cy, wall/2])
+            cube([screen_open_w, screen_open_h, wall + 0.2], center = true);
 }
 
-module panel_boss_holes() {
-    on_slope()
-        for (sx = [-1, 1], sy = [-1, 1]) {
-            // clearance through the slope wall and frame front
-            translate([sx * panel_sx, panel_cy + sy * panel_sy, -0.1])
-                cylinder(d = m3_dia, h = 4.2, $fn = 24);
-            // nut pocket, open to the inside of the head
-            translate([sx * panel_sx, panel_cy + sy * panel_sy, wall + 1.5])
-                nut_trap(m3_nut_dep + 0.5);
-        }
-}
-
-module front_opening() {
-    on_slope()
-        translate([0, panel_cy, -0.1])
-            cube([front_open_w, front_open_h, 20]);
-}
-
-module head_shell() {
-    difference() {
-        union() {
-            // Hollow the tower first, then add the panel bosses so the
-            // interior subtraction cannot eat them.
-            difference() {
-                head_shell_outer();
-                head_shell_inner();
-            }
-            panel_frame();
-        }
-        front_opening();
-        panel_boss_holes();
-
-        // Ventilation through the side walls.
-        for (side = [-1, 1], z = [52, 92, 130])
-            translate([side * (head_w/2 - wall/2), 0, z])
-                rotate([0, 90, 0])
-                    vent_slots(3, 5, 14, 3);
-    }
-}
-
-// ============================================================================
-// DISPLAY PANEL (removable; TFT mounts to its back, portrait)
-// ============================================================================
-module display_panel() {
-    difference() {
-        // Panel body sits proud of the slope, on the outside (-Z).
-        on_slope()
-            translate([0, panel_cy, -panel_t/2])
-                cube([panel_w, panel_h, panel_t], center = true);
-
-        // Screen aperture.
-        on_slope()
-            translate([0, panel_cy, -panel_t/2])
-                cube([screen_open_w, screen_open_h, panel_t + 0.2], center = true);
-
-        // Mounting screws through the panel into the slope bosses.
-        on_slope()
-            for (sx = [-1, 1], sy = [-1, 1]) {
-                translate([sx * panel_sx, panel_cy + sy * panel_sy, -panel_t/2])
-                    cylinder(d = m3_dia, h = panel_t + 0.2, center = true, $fn = 24);
-                // shallow counterbore in the panel front
-                translate([sx * panel_sx, panel_cy + sy * panel_sy, -panel_t])
-                    cylinder(d = m3_head_dia, h = 1.7, $fn = 24);
-            }
-    }
-
-    // TFT PCB standoffs on the inside face (+Z).  Start 0.5mm inside the
-    // panel so the standoffs are definitely fused to it.
+module display_standoffs() {
     on_slope()
         for (sx = [-1, 1], sy = [-1, 1])
             translate([sx * tft_hole_x/2,
-                       panel_cy + sy * tft_hole_y/2, (standoff_h - 0.5)/2])
-                difference() {
-                    cylinder(d = standoff_od, h = standoff_h + 0.5, center = true, $fn = 32);
-                    translate([0, 0, -(standoff_h + 0.5)/2 - 0.1])
-                        cylinder(d = standoff_pilot_d, h = standoff_h + 0.5 + 0.2, $fn = 20);
-                }
+                       screen_cy + sy * tft_hole_y/2,
+                       wall - 0.5 + (standoff_h + 0.5)/2])
+                cylinder(d = standoff_od, h = standoff_h + 0.5, $fn = 32);
+}
+
+module display_standoff_pilots() {
+    on_slope()
+        for (sx = [-1, 1], sy = [-1, 1])
+            translate([sx * tft_hole_x/2,
+                       screen_cy + sy * tft_hole_y/2,
+                       wall - 0.5 + (standoff_h + 0.5)/2])
+                cylinder(d = standoff_pilot_d,
+                         h = standoff_h + 0.7, center = true, $fn = 20);
 }
 
 // ============================================================================
-// PRINTABLE HEAD (bottom plate + shell as one part)
+// BACK CABLE ENTRY
 // ============================================================================
-module clamp_nut_access() {
-    // The clamp nuts live in the adapter plate, but the shell floor sits on
-    // top of it.  Open the hex pockets up through that floor so the nuts can
-    // be inserted from inside the head.
-    for (x = [-8, 8])
-        translate([x, cable_side * clamp_y_center,
-                   base_h + head_bottom_t - m3_nut_dep])
-            nut_trap(m3_nut_dep + wall + 0.5);
+module cable_notch() {
+    translate([case_w/2 - wall - 0.1, -cable_notch_w/2, cable_z - cable_notch_h/2])
+        cube([wall + 0.2, cable_notch_w, cable_notch_h + 0.1]);
 }
 
-module display_head() {
+module cable_boss() {
+    translate([case_w/2 - wall - 4, -15, 0])
+        cube([4.5, 30, 24]);
+}
+
+module cable_channel() {
+    translate([case_w/2 - wall - 4.1, -cable_notch_w/2, cable_z - cable_notch_h/2])
+        cube([4.2, cable_notch_w, cable_notch_h + 0.1]);
+}
+
+module cable_clamp_screw_holes() {
+    for (z = [cable_z - 8, cable_z + 8]) {
+        // clearance through the outside clamp plate + back wall + boss
+        translate([case_w/2 + 3, 0, z])
+            rotate([0, 90, 0])
+                cylinder(d = m3_dia, h = 8.2, $fn = 24);
+        // nut pocket in the inner boss
+        translate([case_w/2 - wall - 3, 0, z])
+            rotate([0, 90, 0])
+                nut_trap(m3_nut_dep + 0.1);
+    }
+}
+
+module back_cable_clamp() {
     difference() {
-        union() {
-            head_bottom_plate();
-            head_shell();
-        }
-        clamp_nut_access();
+        translate([case_w/2 + 1.5, 0, cable_z])
+            cube([3, 30, 22], center = true);
+        // cable relief
+        translate([case_w/2 + 1.5, 0, cable_z])
+            rotate([0, 90, 0])
+                cylinder(d = 8, h = 4, center = true, $fn = 32);
+        for (z = [cable_z - 8, cable_z + 8])
+            translate([case_w/2 + 1.5, 0, z])
+                rotate([0, 90, 0])
+                    cylinder(d = m3_dia, h = 4, center = true, $fn = 24);
     }
 }
 
 // ============================================================================
-// ASSEMBLY PREVIEW
+// VENTS / FEET
+// ============================================================================
+module side_vents() {
+    for (side = [-1, 1], z = [62, 84], i = [-2 : 2])
+        translate([i * 8, side * (case_d/2 - wall/2), z])
+            cube([3, wall + 0.1, 14], center = true);
+}
+
+module feet() {
+    for (x = [-1, 1], y = [-1, 1])
+        translate([x * (case_w/2 - 8),
+                   y * (case_d/2 - 15), -0.1])
+            rubber_foot(6, 1);
+}
+
+// ============================================================================
+// TOP LID
+// ============================================================================
+module top_lid() {
+    difference() {
+        translate([top_lid_x0, 0, case_h])
+            linear_extrude(height = top_lid_t)
+                translate([top_lid_len/2, 0])
+                    rounded_rect(top_lid_len, case_d, corner_r);
+
+        for (p = lid_screw_positions)
+            translate([p[0], p[1], case_h - 0.1])
+                cylinder(d = m3_dia, h = top_lid_t + 0.2, $fn = 24);
+
+        for (p = lid_screw_positions)
+            translate([p[0], p[1], case_h + top_lid_t - 1.5])
+                cylinder(d = m3_head_dia, h = 1.7, $fn = 24);
+    }
+
+    // locating lip
+    translate([top_lid_x0 + 1, 0, case_h - 2])
+        linear_extrude(height = 2)
+            translate([(top_lid_len - 2)/2, 0])
+                rounded_rect(top_lid_len - 6, case_d - 2*wall - 4, 1);
+}
+
+// ============================================================================
+// CASE
+// ============================================================================
+module display_case() {
+    difference() {
+        union() {
+            // Hollow the shell first.
+            difference() {
+                case_outer();
+                case_inner();
+                top_opening();
+            }
+
+            // Bottom features and display mount live in the same cavity.
+            powerpole_enclosure();
+            display_standoffs();
+            top_lid_bosses();
+            cable_boss();
+        }
+
+        esp32_nut_traps();
+        powerpole_mating_hole();
+        powerpole_retention_pin();
+        powerpole_wire_passage();
+
+        screen_opening();
+        display_standoff_pilots();
+
+        cable_notch();
+        cable_channel();
+        cable_clamp_screw_holes();
+
+        side_vents();
+        feet();
+
+        lid_nut_traps();
+    }
+}
+
+// ============================================================================
+// ASSEMBLY
 // ============================================================================
 module display_assembly() {
-    color("LightBlue", 0.75) remote_base(cable_side);
-    color("LightGreen", 0.75) display_head();
-    color("LightYellow", 0.9) display_panel();
-
-    color("Orange", 0.8)
-        translate([0, 0, base_h - clamp_h/2 - 0.1])
-            strain_relief_clamp(cable_side);
+    color("LightBlue", 0.8) display_case();
+    color("LightGreen", 0.85)
+        translate([0, 0, 0])
+            top_lid();
+    color("Orange", 0.9) back_cable_clamp();
 }
 
 // ============================================================================
@@ -312,6 +307,6 @@ module display_assembly() {
 // ============================================================================
 
 display_assembly();
-// display_head();
-// display_panel();
-// remote_base(cable_side);
+// display_case();
+// top_lid();
+// back_cable_clamp();
