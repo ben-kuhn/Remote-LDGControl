@@ -142,44 +142,44 @@ module lid_nut_traps() {
 // ============================================================================
 // POWERPOLE ENCLOSURE (rotated 90°: long axis along X, mating on right wall)
 // ============================================================================
-module powerpole_enclosure() {
+module powerpole_enclosure(floor_top = floor_t) {
     pp_left  = pp_pocket_x - pp_conn_length/2;
     pp_back  = pp_pocket_y - pp_w/2;
     pp_front = pp_pocket_y + pp_w/2;
 
     // Left wall (-X side).  Start below the floor so the enclosure fuses
     // with the case floor instead of only touching it.
-    translate([pp_left - pp_wall_t, pp_back, floor_t - 0.5])
+    translate([pp_left - pp_wall_t, pp_back, floor_top - 0.5])
         cube([pp_wall_t, pp_w, pp_h + pp_ceiling_t + 0.5]);
 
     // Front wall (+Y side)
-    translate([pp_left - pp_wall_t, pp_front, floor_t - 0.5])
+    translate([pp_left - pp_wall_t, pp_front, floor_top - 0.5])
         cube([pp_conn_length + pp_wall_t, pp_wall_t, pp_h + pp_ceiling_t + 0.5]);
 
     // Ceiling
-    translate([pp_left - pp_wall_t, pp_back, floor_t + pp_h])
+    translate([pp_left - pp_wall_t, pp_back, floor_top + pp_h])
         cube([pp_conn_length + pp_wall_t, pp_w, pp_ceiling_t]);
 }
 
-module powerpole_mating_hole() {
-    translate([case_w/2 - wall/2, pp_pocket_y, floor_t + pp_h/2])
+module powerpole_mating_hole(floor_top = floor_t) {
+    translate([case_w/2 - wall/2, pp_pocket_y, floor_top + pp_h/2])
         cube([wall + 0.2, pp_w + 2*tol, pp_h + 2*tol], center = true);
 }
 
-module powerpole_retention_pin() {
+module powerpole_retention_pin(floor_top = floor_t) {
     // Vertical 3/32in roll-pin hole through the pocket ceiling.  It lands in
     // the round slot formed where the + and - housings dovetail together,
     // 9.9mm behind the mating face, and locks the pair in the pocket.
     pin_x = case_w/2 - pp_pin_from_face;
-    translate([pin_x, pp_pocket_y, floor_t + pp_h - 0.1])
+    translate([pin_x, pp_pocket_y, floor_top + pp_h - 0.1])
         cylinder(d = pp_pin_d, h = pp_ceiling_t + 0.2, $fn = 24);
 }
 
-module powerpole_wire_passage() {
+module powerpole_wire_passage(floor_top = floor_t) {
     pp_left = pp_pocket_x - pp_conn_length/2;
     wire_slot_w = 14;
     wire_slot_h = 8;
-    translate([pp_left - pp_wall_t - 0.1, pp_pocket_y - wire_slot_w/2, floor_t])
+    translate([pp_left - pp_wall_t - 0.1, pp_pocket_y - wire_slot_w/2, floor_top])
         cube([pp_wall_t + 0.2, wire_slot_w, wire_slot_h]);
 }
 

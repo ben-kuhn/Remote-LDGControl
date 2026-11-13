@@ -24,6 +24,7 @@ case_w = 80;      // X: front-to-back depth
 case_d = 105;     // Y: left-to-right width (display width)
 case_h = 85;      // Z: total height (display sits ~15mm above the ESP)
 front_h = 15;     // vertical front face below the display slope
+display_floor_t = 4.0;   // flat floor; deep enough to trap the M3 nuts
 tilt = 12;        // display face lean-back angle
 corner_r = 3;
 
@@ -108,9 +109,15 @@ module case_outer() {
 }
 
 module case_inner() {
-    extrude_profile_y(case_d - 2*wall)
-        offset(delta = -wall)
-            polygon(outer_profile);
+    // Start the cavity at the flat floor top so the floor is thick enough to
+    // trap the M3 nuts without printed standoff bosses.
+    intersection() {
+        extrude_profile_y(case_d - 2*wall)
+            offset(delta = -wall)
+                polygon(outer_profile);
+        translate([-case_w, -case_d, display_floor_t])
+            cube([2*case_w, 2*case_d, case_h + 5]);
+    }
 }
 
 module top_opening() {
@@ -171,27 +178,14 @@ module cable_notch_floor() {
         cube([wall + 0.2, cable_notch_w, cable_notch_h]);
 }
 
-module board_nut_bosses() {
-    // Raise the ESP32 mounting surface so the floor nut pockets have a real
-    // shoulder above the nut instead of being open through the 2.5mm floor.
-    for (pos = screw_positions())
-        translate([pos[0], pos[1], floor_t - 0.5])
-            cylinder(d = 9, h = 2.5, $fn = 32);
-}
-
 module board_nut_pockets() {
     for (pos = screw_positions()) {
         translate([pos[0], pos[1], -0.1])
             nut_trap(m3_nut_dep + 0.1);
         translate([pos[0], pos[1], m3_nut_dep])
-            cylinder(d = m3_dia, h = floor_t - m3_nut_dep + 2.2, $fn = 24);
+            cylinder(d = m3_dia,
+                     h = display_floor_t - m3_nut_dep + 0.2, $fn = 24);
     }
-}
-
-module floor_clamp_bosses() {
-    for (y = [-8, 8])
-        translate([case_w/2 - 10, y, floor_t - 0.5])
-            cylinder(d = 9, h = 2.5, $fn = 32);
 }
 
 module floor_clamp_nut_traps() {
@@ -199,12 +193,13 @@ module floor_clamp_nut_traps() {
         translate([case_w/2 - 10, y, -0.1])
             nut_trap(m3_nut_dep + 0.1);
         translate([case_w/2 - 10, y, m3_nut_dep])
-            cylinder(d = m3_dia, h = floor_t - m3_nut_dep + 2.2, $fn = 24);
+            cylinder(d = m3_dia,
+                     h = display_floor_t - m3_nut_dep + 0.2, $fn = 24);
     }
 }
 
 module floor_cable_clamp() {
-    translate([case_w/2 - 10, 0, floor_t + 2])
+    translate([case_w/2 - 10, 0, display_floor_t])
         rotate([0, 0, 90])
             rotate([180, 0, 0])
                 strain_relief_clamp(side = 0);
@@ -266,16 +261,14 @@ module display_case() {
             }
 
             // Bottom features and display mount live in the same cavity.
-            powerpole_enclosure();
-            board_nut_bosses();
-            floor_clamp_bosses();
+            powerpole_enclosure(display_floor_t);
             top_lid_bosses();
         }
 
         board_nut_pockets();
-        powerpole_mating_hole();
-        powerpole_retention_pin();
-        powerpole_wire_passage();
+        powerpole_mating_hole(display_floor_t);
+        powerpole_retention_pin(display_floor_t);
+        powerpole_wire_passage(display_floor_t);
 
         screen_opening();
         display_front_mounts();
