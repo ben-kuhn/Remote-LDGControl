@@ -134,14 +134,30 @@ module top_lid_bosses() {
 }
 
 module lid_nut_traps() {
-    // Nuts drop in from below/inside the case and are captured under the
-    // shoulder.  The screw passes through the clearance hole above the nut
-    // and pulls the lid down onto the boss.
+    // Nuts slide in from the side through a slot, rest on a closed pocket
+    // floor, and are captured under the top shoulder.  The screw passes
+    // through the clearance hole above and pulls the lid down onto the boss.
     for (p = lid_screw_positions) {
-        translate([p[0], p[1], case_h - 3])
-            cylinder(d = m3_dia, h = 3.1, $fn = 24);
-        translate([p[0], p[1], case_h - 10])
-            nut_trap(7.0 + 0.1);
+        x = p[0];
+        y = p[1];
+        side = abs(y) > 40;   // side-wall bosses vs rear-wall bosses
+
+        // screw clearance through the 2.5mm top shoulder
+        translate([x, y, case_h - 2.5])
+            cylinder(d = m3_dia, h = 2.6, $fn = 24);
+
+        // closed-bottom hex pocket; nut rests on the floor at case_h-5
+        translate([x, y, case_h - 5])
+            nut_trap(m3_nut_dep + 0.1);
+
+        // side-loading slot from the inside of the case
+        if (side) {
+            translate([x - 3, y - sign(y)*5, case_h - 5])
+                cube([6, 5, 2.7]);
+        } else {
+            translate([x - 5, y - 3, case_h - 5])
+                cube([5, 6, 2.7]);
+        }
     }
 }
 
