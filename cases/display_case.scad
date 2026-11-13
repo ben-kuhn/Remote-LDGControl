@@ -53,12 +53,12 @@ top_lid_x0 = front_top_x;
 top_lid_len = case_w/2 - front_top_x;     // 65.1
 
 lid_screw_positions = [
-    [-10,  47.5],
-    [-10, -47.5],
-    [ 20,  47.5],
-    [ 20, -47.5],
-    [ 34.5,  20],
-    [ 34.5, -20],
+    [-10,  46.5],
+    [-10, -46.5],
+    [ 20,  46.5],
+    [ 20, -46.5],
+    [ 34.0,  20],
+    [ 34.0, -20],
 ];
 
 // ============================================================================
@@ -134,9 +134,15 @@ module top_lid_bosses() {
 }
 
 module lid_nut_traps() {
-    for (p = lid_screw_positions)
-        translate([p[0], p[1], case_h - m3_nut_dep])
-            nut_trap(m3_nut_dep + 0.1);
+    // Nuts drop in from below/inside the case and are captured under the
+    // shoulder.  The screw passes through the clearance hole above the nut
+    // and pulls the lid down onto the boss.
+    for (p = lid_screw_positions) {
+        translate([p[0], p[1], case_h - 3])
+            cylinder(d = m3_dia, h = 3.1, $fn = 24);
+        translate([p[0], p[1], case_h - 10])
+            nut_trap(7.0 + 0.1);
+    }
 }
 
 // ============================================================================
