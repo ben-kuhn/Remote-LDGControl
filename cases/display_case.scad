@@ -52,13 +52,10 @@ top_lid_t = 3;
 top_lid_x0 = front_top_x;
 top_lid_len = case_w/2 - front_top_x;     // 65.1
 
-lid_len   = case_w/2 + 0.5 - top_lid_x0;    // 65.6, overlaps the back flange
+lid_len   = case_w/2 - top_lid_x0;          // 65.1, flush with back
 lid_w     = case_d - 2*wall;                // 100
-lid_z0    = case_h - 6;                     // slides under the 3mm top rim
+lid_z0    = case_h - 6;                     // slides under the 3mm side rims
 lid_t     = 3;
-back_tab_w   = 20;
-back_tab_len = 4.5;
-back_tab_z   = lid_z0 + lid_t/2;
 
 // ============================================================================
 // HELPERS
@@ -126,23 +123,11 @@ module top_opening() {
               wall + 2]);
 }
 
-module back_lid_boss() {
-    // Solid boss below the back-wall slot for the single retaining screw.
-    // Self-tapping pilot; drill to 4mm for a heat-set insert.
-    translate([case_w/2 - 4, -10, case_h - 12])
-        cube([4, 20, 6]);
-}
-
 module back_lid_opening() {
-    // Slot through the back wall only, for the lid's back tab.
-    translate([case_w/2 - wall - 0.1, -back_tab_w/2 - 2, lid_z0 - 0.1])
-        cube([wall + 0.2, back_tab_w + 4, lid_t + 0.2]);
-}
-
-module back_lid_pilot() {
-    translate([case_w/2 - 0.5, 0, case_h - 9.5])
-        rotate([0, 90, 0])
-            cylinder(d = 2.5, h = 7, center = true, $fn = 20);
+    // Back is open from the lid level to the top across the full lid width.
+    // The lid slides in from the back and is held by the side rims only.
+    translate([case_w/2 - wall - 0.1, -(case_d/2 - wall), lid_z0 - 0.4])
+        cube([wall + 0.2, case_d - 2*wall, case_h - lid_z0 + 0.6]);
 }
 
 // ============================================================================
@@ -231,30 +216,12 @@ module feet() {
 // TOP LID
 // ============================================================================
 module top_lid() {
-    // Flat plate that slides under the case's top rim from the back.  The
-    // front slope stops it forward; the back tab is screwed to the case.
-    difference() {
-        union() {
-            translate([top_lid_x0, -lid_w/2, lid_z0])
-                cube([lid_len, lid_w, lid_t]);
-
-            // back flange outside the wall; this stops the lid and carries
-            // the single retaining screw into a solid boss on the case.
-            translate([case_w/2, -15, case_h - 12])
-                cube([3, 30, 12]);
-        }
-
-        // retaining screw hole through the back flange
-        translate([case_w/2 + 1.5, 0, case_h - 9.5])
-            rotate([0, 90, 0])
-                cylinder(d = m3_dia, h = 3.2, center = true, $fn = 24);
-        translate([case_w/2 + 3, 0, case_h - 9.5])
-            rotate([0, 90, 0])
-                cylinder(d = m3_head_dia, h = 1.5, center = true, $fn = 24);
-    }
+    // Plain friction-fit plate.  It slides in from the open back under the
+    // side rims; there is no back flange, screw, or lip.
+    translate([top_lid_x0, -lid_w/2, lid_z0])
+        cube([lid_len, lid_w, lid_t]);
 }
 
-// ============================================================================
 
 // ============================================================================
 // CASE
@@ -271,7 +238,6 @@ module display_case() {
 
             // Bottom features and display mount live in the same cavity.
             powerpole_enclosure(display_floor_t);
-            back_lid_boss();
         }
 
         board_nut_pockets();
@@ -290,7 +256,6 @@ module display_case() {
         feet();
 
         back_lid_opening();
-        back_lid_pilot();
     }
 }
 
@@ -313,5 +278,6 @@ display_assembly();
 // display_case();
 // top_lid();
 // floor_cable_clamp();
+
 
 
