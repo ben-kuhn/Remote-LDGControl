@@ -52,7 +52,7 @@ top_lid_t = 3;
 top_lid_x0 = front_top_x;
 top_lid_len = case_w/2 - front_top_x;     // 65.1
 
-lid_len   = case_w/2 - wall - top_lid_x0;   // 62.6, fits inside top opening
+lid_len   = case_w/2 + 0.5 - top_lid_x0;    // 65.6, overlaps the back flange
 lid_w     = case_d - 2*wall;                // 100
 lid_z0    = case_h - 6;                     // slides under the 3mm top rim
 lid_t     = 3;
@@ -237,10 +237,6 @@ module top_lid() {
         union() {
             translate([top_lid_x0, -lid_w/2, lid_z0])
                 cube([lid_len, lid_w, lid_t]);
-
-            // back tab through the back-wall slot (overlaps the plate)
-            translate([top_lid_x0 + lid_len - 1, -back_tab_w/2, lid_z0])
-                cube([case_w/2 - (top_lid_x0 + lid_len - 1) + 3, back_tab_w, lid_t]);
 
             // back flange outside the wall; this stops the lid and carries
             // the single retaining screw into a solid boss on the case.
