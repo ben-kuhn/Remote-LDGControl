@@ -52,10 +52,13 @@ top_lid_t = 3;
 top_lid_x0 = front_top_x;
 top_lid_len = case_w/2 - front_top_x;     // 65.1
 
-lid_len   = case_w/2 - top_lid_x0;          // 65.1, flush with back
-lid_w     = case_d - 2*wall;                // 100
-lid_z0    = case_h - 6;                     // slides under the 3mm side rims
-lid_t     = 3;
+lid_len     = case_w/2 - top_lid_x0;              // 65.1, flush with back
+slot_depth  = 1.5;
+lid_w       = case_d - 2*wall + 2*slot_depth;     // 103, edges in the slots
+lid_z0      = case_h - 6;
+lid_t       = 3;
+slot_h      = lid_t + 0.2;
+front_slot_x = top_lid_x0 - slot_depth;
 
 // ============================================================================
 // HELPERS
@@ -123,11 +126,27 @@ module top_opening() {
               wall + 2]);
 }
 
+module side_lid_slots() {
+    // Notches in the side walls.  The lid edges run in these, so the lid is
+    // captured top and bottom even when the case is turned over.
+    for (side = [-1, 1]) {
+        y0 = side > 0 ? case_d/2 - wall : -case_d/2 + wall - slot_depth;
+        translate([top_lid_x0, y0, lid_z0 - 0.1])
+            cube([lid_len, slot_depth, slot_h]);
+    }
+}
+
+module front_lid_slot() {
+    // Matching notch in the front slope wall; the front edge of the lid
+    // slides into it and it acts as the forward stop.
+    translate([front_slot_x, -lid_w/2, lid_z0 - 0.1])
+        cube([slot_depth, lid_w, slot_h]);
+}
+
 module back_lid_opening() {
-    // Back is open from the lid level to the top across the full lid width.
-    // The lid slides in from the back and is held by the side rims only.
-    translate([case_w/2 - wall - 0.1, -(case_d/2 - wall), lid_z0 - 0.4])
-        cube([wall + 0.2, case_d - 2*wall, case_h - lid_z0 + 0.6]);
+    // The back is open across the lid width so the lid can be slid in and out.
+    translate([case_w/2 - wall - 0.1, -lid_w/2, lid_z0 - 0.4])
+        cube([wall + 0.2, lid_w, case_h - lid_z0 + 0.6]);
 }
 
 // ============================================================================
@@ -216,8 +235,8 @@ module feet() {
 // TOP LID
 // ============================================================================
 module top_lid() {
-    // Plain friction-fit plate.  It slides in from the open back under the
-    // side rims; there is no back flange, screw, or lip.
+    // Plain friction-fit plate.  Its edges slide into the side and front
+    // notches from the open back; no screws, flange, or lip.
     translate([top_lid_x0, -lid_w/2, lid_z0])
         cube([lid_len, lid_w, lid_t]);
 }
@@ -255,6 +274,8 @@ module display_case() {
         side_vents();
         feet();
 
+        side_lid_slots();
+        front_lid_slot();
         back_lid_opening();
     }
 }
