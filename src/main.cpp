@@ -1,3 +1,4 @@
+#include "voltage_sensor.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
@@ -353,6 +354,7 @@ void setup() {
         Serial.println("Tuner interface ready");
     }
 
+    voltageSensor.begin();
     tuner.setMeterCallback(onMeterUpdate);
 
 #ifdef WITH_DISPLAY
@@ -360,6 +362,7 @@ void setup() {
     display.begin(&tuner);
     configManager.setPortalIdleCallback([]() {
         tuner.process();
+        tuner.serviceMeter();
         display.loop();
     });
 #endif
@@ -417,6 +420,7 @@ void setup() {
 
 void loop() {
     tuner.process();
+    tuner.serviceMeter();
 
     // WiFi reconnection — only manage STA when STA is actually configured.
     // In AP-only mode (captive portal still running, never configured) there

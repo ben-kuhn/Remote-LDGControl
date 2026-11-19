@@ -477,7 +477,7 @@
         const meterState = {
             fwdPower: 0,
             refPower: 0,
-            swr: 1.0,
+            swr: null,
             maxPower: 1000,
             highScale: true,
             band: '--'
@@ -719,7 +719,7 @@
         function updateMeter(data) {
             meterState.fwdPower = data.fwd_power || 0;
             meterState.refPower = data.ref_power || 0;
-            meterState.swr = data.swr || 1.0;
+            meterState.swr = Number.isFinite(data.swr) ? data.swr : null;
 
             if (data.band) {
                 meterState.band = data.band;

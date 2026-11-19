@@ -124,4 +124,10 @@
 #define VOLTAGE_DIVIDER_RATIO   5.545 // (R1+R2)/R2 = (100k+22k)/22k
 #define VOLTAGE_SAMPLES         32    // Number of ADC samples to average
 
+#define TUNER_RESPONSE_TIMEOUT_MS 500
+#define TUNER_MODE_TIMEOUT_MS    2200
+#define TUNER_ANTENNA_TIMEOUT_MS 2200
+#define TUNER_TUNE_TIMEOUT_MS   20000
+#define TUNER_SYNC_TIMEOUT_MS   2200
+
 #endif // CONFIG_H
